@@ -1,0 +1,17 @@
+The /mailpilot-frontend/public directory is typically used to store static assets such as images, icons, and other files that need to be served directly. Since you have not specified any particular files to create within the public directory, I will create an index.html file as it is commonly found in the public folder of a React application.
+
+Here are the contents for the /mailpilot-frontend/public/index.html file:
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MailPilot</title>
+    <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
