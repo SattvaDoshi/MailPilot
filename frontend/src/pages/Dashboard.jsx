@@ -4,6 +4,8 @@ import { useQuery } from 'react-query';
 import { subscriptionAPI, groupsAPI, emailsAPI } from '../services/api';
 import { Users, FileText, Send, TrendingUp } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { useAuth } from '../hooks/useAuth';
+
 
 const StatCard = ({ title, value, icon: Icon, change, color = "blue" }) => (
   <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -34,6 +36,20 @@ const StatCard = ({ title, value, icon: Icon, change, color = "blue" }) => (
 );
 
 const Dashboard = () => {
+
+   const { isLoaded, isSignedIn, user } = useAuth();
+  
+  console.log('Dashboard render:', { isLoaded, isSignedIn, user: !!user });
+  
+  if (!isLoaded) {
+    return <div>Loading...</div>;
+  }
+  
+  if (!isSignedIn) {
+    console.log('Not signed in from Dashboard');
+    return <div>Not authenticated</div>;
+  }
+  
   const { data: subscription, isLoading: subLoading } = useQuery(
     'subscription',
     subscriptionAPI.getStatus

@@ -1,59 +1,52 @@
+// src/components/groups/ContactUpload.jsx
 import React, { useState } from 'react';
+import Papa from 'papaparse';
+import { useMutation, useQueryClient } from 'react-query';
+import { groupsAPI } from '../../services/api';
+import Button from '../ui/Button';
+import toast from 'react-hot-toast';
 
-const ContactUpload = () => {
-    const [file, setFile] = useState(null);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+const ContactUpload = ({ onSuccess }) => {
+  const [file, setFile] = useState(null);
+  const qc = useQueryClient();
 
-    const handleFileChange = (event) => {
-        const selectedFile = event.target.files[0];
-        if (selectedFile && selectedFile.type === 'text/csv') {
-            setFile(selectedFile);
-            setError('');
-        } else {
-            setError('Please upload a valid CSV file.');
-            setFile(null);
-        }
-    };
+  const mutation = useMutation(groupsAPI.create, {
+    onSuccess: () => {
+      qc.invalidateQueries('groups');
+      toast.success('Contacts imported!');
+      onSuccess();
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Upload failed'),
+  });
 
-    const handleUpload = async () => {
-        if (!file) {
-            setError('No file selected.');
-            return;
-        }
+  const handleSubmit = () => {
+    if (!file) return;
 
-        const formData = new FormData();
-        formData.append('file', file);
+    Papa.parse(file, {
+      header: true,
+      complete: ({ data }) => {
+        const contacts = data
+          .filter((c) => c.email)
+          .map((c) => ({ email: c.email.trim(), name: c.name || '' }));
+        if (!contacts.length) return toast.error('No valid contacts found');
 
-        try {
-            const response = await fetch('/api/upload-contacts', {
-                method: 'POST',
-                body: formData,
-            });
+        mutation.mutate({ name: file.name.replace('.csv', ''), contacts });
+      },
+    });
+  };
 
-            if (response.ok) {
-                setSuccess('Contacts uploaded successfully!');
-                setError('');
-                setFile(null);
-            } else {
-                setError('Failed to upload contacts. Please try again.');
-                setSuccess('');
-            }
-        } catch (error) {
-            setError('An error occurred while uploading contacts.');
-            setSuccess('');
-        }
-    };
-
-    return (
-        <div className="contact-upload">
-            <h2>Upload Contacts</h2>
-            <input type="file" accept=".csv" onChange={handleFileChange} />
-            {error && <p className="error">{error}</p>}
-            {success && <p className="success">{success}</p>}
-            <button onClick={handleUpload}>Upload</button>
-        </div>
-    );
+  return (
+    <div className="space-y-4">
+      <input
+        type="file"
+        accept=".csv"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+      />
+      <Button onClick={handleSubmit} loading={mutation.isLoading}>
+        Import
+      </Button>
+    </div>
+  );
 };
 
 export default ContactUpload;

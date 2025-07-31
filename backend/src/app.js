@@ -3,15 +3,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { configDotenv } from 'dotenv';
 
-configDotenv();
-
-// Route imports
+// Import your route files
 import groupRoutes from './routes/groups.js';
 import emailRoutes from './routes/emails.js';
 import templateRoutes from './routes/templates.js';
 import subscriptionRoutes from './routes/subscriptions.js';
+import authRoutes from './routes/auth.js'; // ← ADD THIS LINE
+import smtpRoutes from './routes/smtp.js';
 
 const app = express();
 
@@ -24,8 +23,8 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100
 });
 app.use(limiter);
 
@@ -33,11 +32,13 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// Mount your routes
+app.use('/api/auth', authRoutes);        // ← ADD THIS LINE
 app.use('/api/groups', groupRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/smtp', smtpRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

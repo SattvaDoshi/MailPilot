@@ -1,13 +1,12 @@
+// src/pages/Settings.jsx
 import React from 'react';
+import SmtpConfig from '../components/settings/SmtpConfig';
+import PlanSelector from '../components/subscription/PlanSelector';
 
-const Settings = () => {
-    return (
-        <div className="settings-page">
-            <h1 className="text-2xl font-bold">Settings</h1>
-            <p>Manage your preferences and account settings here.</p>
-            {/* Additional settings components can be added here */}
-        </div>
-    );
-};
-
+const Settings = () => (
+  <div className="space-y-12">
+    <SmtpConfig />
+    <PlanSelector />
+  </div>
+);
 export default Settings;

@@ -1,36 +1,44 @@
-import { useState, useEffect } from 'react';
-import { getCurrentUser, login, logout } from '../services/auth';
+// src/hooks/useAuth.js
+import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
+import { useEffect, useState } from 'react';
+import api from '../services/api';
 
-const useAuth = () => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+export const useAuth = () => {
+  const { isLoaded, isSignedIn, signOut } = useClerkAuth();
+  const { user } = useUser();
+  const [userRegistered, setUserRegistered] = useState(false);
 
-    useEffect(() => {
-        const fetchUser = async () => {
-            const currentUser = await getCurrentUser();
-            setUser(currentUser);
-            setLoading(false);
-        };
-
-        fetchUser();
-    }, []);
-
-    const handleLogin = async (credentials) => {
-        const loggedInUser = await login(credentials);
-        setUser(loggedInUser);
+  useEffect(() => {
+    const registerUser = async () => {
+      if (isLoaded && isSignedIn && user && !userRegistered) {
+        try {
+          await api.post('/auth/register', {
+            clerkId: user.id,
+            email: user.primaryEmailAddress?.emailAddress,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          });
+          setUserRegistered(true);
+        } catch (error) {
+          // User might already exist, which is fine
+          if (error.response?.status !== 409) {
+            console.error('User registration error:', error);
+          }
+          setUserRegistered(true);
+        }
+      }
     };
 
-    const handleLogout = async () => {
-        await logout();
-        setUser(null);
-    };
+    registerUser();
+  }, [isLoaded, isSignedIn, user, userRegistered]);
 
-    return {
-        user,
-        loading,
-        handleLogin,
-        handleLogout,
-    };
+  return {
+    isLoaded,
+    isSignedIn,
+    user,
+    signOut,
+    loading: !isLoaded,
+  };
 };
 
 export default useAuth;

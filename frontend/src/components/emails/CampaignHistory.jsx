@@ -1,48 +1,78 @@
-import React, { useEffect, useState } from 'react';
-import { fetchCampaignHistory } from '../../services/api';
+// src/components/emails/CampaignHistory.jsx
+import React, { useState } from 'react';
+import { usePaginatedGet } from '../../hooks/useApi';
+import { emailsAPI } from '../../services/api';
+import { Loader2 } from 'lucide-react';
 
 const CampaignHistory = () => {
-    const [campaigns, setCampaigns] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
 
-    useEffect(() => {
-        const getCampaignHistory = async () => {
-            try {
-                const data = await fetchCampaignHistory();
-                setCampaigns(data);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
+  const { data, isFetching } = usePaginatedGet(
+    'emailHistory',
+    emailsAPI.getHistory,
+    { page, limit: 20 },
+    { keepPreviousData: true }
+  );
 
-        getCampaignHistory();
-    }, []);
+  return (
+    <div className="mt-8">
+      <h3 className="text-lg font-medium mb-4">Campaign History</h3>
 
-    if (loading) {
-        return <div>Loading...</div>;
-    }
+      <table className="min-w-full bg-white rounded shadow text-sm">
+        <thead>
+          <tr className="bg-gray-50 text-left">
+            <th className="px-4 py-2">Recipient</th>
+            <th className="px-4 py-2">Subject</th>
+            <th className="px-4 py-2">Status</th>
+            <th className="px-4 py-2">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data?.data?.logs?.map((log) => (
+            <tr key={log._id} className="border-t">
+              <td className="px-4 py-2">{log.recipientEmail}</td>
+              <td className="px-4 py-2">{log.subject}</td>
+              <td className="px-4 py-2">
+                <span
+                  className={`px-2 py-1 rounded ${
+                    log.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {log.status}
+                </span>
+              </td>
+              <td className="px-4 py-2">{new Date(log.createdAt).toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-    if (error) {
-        return <div>Error: {error}</div>;
-    }
-
-    return (
-        <div>
-            <h2>Campaign History</h2>
-            <ul>
-                {campaigns.map((campaign) => (
-                    <li key={campaign.id}>
-                        <h3>{campaign.title}</h3>
-                        <p>Status: {campaign.status}</p>
-                        <p>Sent on: {new Date(campaign.sentDate).toLocaleDateString()}</p>
-                    </li>
-                ))}
-            </ul>
+      {/* Pagination */}
+      {data?.data?.pagination?.pages > 1 && (
+        <div className="flex items-center justify-center space-x-4 mt-4">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <span>
+            Page {page} / {data.data.pagination.pages}
+          </span>
+          <button
+            disabled={page === data.data.pagination.pages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Next
+          </button>
         </div>
-    );
+      )}
+
+      {isFetching && <Loader2 className="h-5 w-5 animate-spin mt-2 mx-auto" />}
+    </div>
+  );
 };
 
 export default CampaignHistory;

@@ -1,58 +1,36 @@
-import React, { useState } from 'react';
+// src/components/subscription/PaymentModal.jsx
+import React, { useEffect } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 
-const PaymentModal = ({ isOpen, onClose, onPaymentSuccess }) => {
-    const [amount, setAmount] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+const PaymentModal = ({ open, onClose, order }) => {
+  useEffect(() => {
+    if (!open || !order) return;
+    const rzp = new window.Razorpay({
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      order_id: order.orderId,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'MailPilot',
+      handler: (resp) => {
+        order.onSuccess(resp);
+        onClose();
+      },
+      modal: { ondismiss: onClose },
+    });
+    rzp.open();
+  }, [open, order, onClose]);
 
-    const handlePayment = async () => {
-        setLoading(true);
-        setError('');
-
-        try {
-            // Simulate payment processing
-            await new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    if (Math.random() > 0.5) {
-                        resolve();
-                    } else {
-                        reject(new Error('Payment failed. Please try again.'));
-                    }
-                }, 2000);
-            });
-
-            onPaymentSuccess();
-            onClose();
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose}>
-            <h2 className="text-lg font-semibold">Process Payment</h2>
-            <div className="mt-4">
-                <label className="block mb-2">Amount:</label>
-                <input
-                    type="text"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="border rounded p-2 w-full"
-                />
-            </div>
-            {error && <p className="text-red-500 mt-2">{error}</p>}
-            <div className="mt-4 flex justify-end">
-                <Button onClick={onClose} disabled={loading} className="mr-2">Cancel</Button>
-                <Button onClick={handlePayment} disabled={loading || !amount}>
-                    {loading ? 'Processing...' : 'Pay'}
-                </Button>
-            </div>
-        </Modal>
-    );
+  return (
+    <Modal isOpen={open} onClose={onClose} title="Processing Payment">
+      <p className="py-8 text-center">Opening Razorpay Checkout…</p>
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+    </Modal>
+  );
 };
 
 export default PaymentModal;

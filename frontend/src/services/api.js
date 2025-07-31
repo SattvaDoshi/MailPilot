@@ -9,8 +9,8 @@ const api = axios.create({
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
-  async (config) => {
-    const token = await window.Clerk?.session?.getToken();
+  (config) => {
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,13 +26,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      window.Clerk?.signOut();
+      localStorage.removeItem('token');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-// API methods
+// API methods remain the same
 export const groupsAPI = {
   getAll: () => api.get('/groups'),
   getById: (id) => api.get(`/groups/${id}`),
@@ -63,6 +64,12 @@ export const subscriptionAPI = {
   create: (data) => api.post('/subscriptions/create', data),
   verify: (data) => api.post('/subscriptions/verify', data),
   cancel: () => api.post('/subscriptions/cancel'),
+};
+
+export const smtpAPI = {
+  getConfig: () => api.get('/smtp/config'),
+  configure: (data) => api.post('/smtp/config', data),
+  test: (data) => api.post('/smtp/test', data),
 };
 
 export default api;
