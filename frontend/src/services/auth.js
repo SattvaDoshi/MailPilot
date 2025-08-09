@@ -1,29 +1,15 @@
-import axios from 'axios';
+import api from './api'
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-export const login = async (email, password) => {
-    try {
-        const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-        return response.data;
-    } catch (error) {
-        throw error.response ? error.response.data : { message: 'Login failed' };
-    }
-};
-
-export const logout = async () => {
-    try {
-        await axios.post(`${API_URL}/auth/logout`);
-    } catch (error) {
-        throw error.response ? error.response.data : { message: 'Logout failed' };
-    }
-};
-
-export const register = async (userData) => {
-    try {
-        const response = await axios.post(`${API_URL}/auth/register`, userData);
-        return response.data;
-    } catch (error) {
-        throw error.response ? error.response.data : { message: 'Registration failed' };
-    }
-};
+export const authAPI = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  register: (userData) => api.post('/auth/register', userData),
+  verifyEmail: (token) => api.get(`/auth/verify-email/${token}`), // Add this line
+  getProfile: (token) => api.get('/users/profile', {
+    headers: { Authorization: `Bearer ${token}` }
+  }),
+  setupTwoFactor: () => api.post('/auth/setup-2fa'),
+  verifyTwoFactor: (token) => api.post('/auth/verify-2fa', { token }),
+  updateProfile: (data) => api.put('/users/profile', data),
+  testSMTP: (settings) => api.post('/users/test-smtp', { smtpSettings: settings }),
+  getUserStats: () => api.get('/users/stats')
+}

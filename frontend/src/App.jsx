@@ -1,121 +1,47 @@
-// src/App.jsx
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { Toaster } from 'react-hot-toast';
+import React from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/common/ProtectedRoute'
+import Layout from './components/common/Layout'
 
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import LoginForm from './components/auth/LoginForm';
-import RegisterForm from './components/auth/RegisterForm';
-import EmailVerification from './components/auth/EmailVerification';
-import Layout from './components/layout/Layout';
-import Dashboard from './pages/Dashboard';
-import Groups from './pages/Groups';
-import Templates from './pages/Templates';
-import Campaigns from './pages/Campaigns';
-import Analytics from './pages/Analytics';
-import Settings from './pages/Settings';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={!user ? <LoginForm /> : <Navigate to="/" replace />} 
-      />
-      <Route 
-        path="/register" 
-        element={!user ? <RegisterForm /> : <Navigate to="/" replace />} 
-      />
-      <Route path="/verify-email" element={<EmailVerification />} />
-      
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Layout>
-            <Dashboard />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/groups" element={
-        <ProtectedRoute>
-          <Layout>
-            <Groups />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/templates" element={
-        <ProtectedRoute>
-          <Layout>
-            <Templates />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/campaigns" element={
-        <ProtectedRoute>
-          <Layout>
-            <Campaigns />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/analytics" element={
-        <ProtectedRoute>
-          <Layout>
-            <Analytics />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <Layout>
-            <Settings />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
-}
+// Pages
+import Login from './pages/Login'
+import Register from './pages/Register'
+import VerifyEmail from './pages/VerifyEmail' // Add this import
+import Dashboard from './pages/Dashboard'
+import Groups from './pages/Groups'
+import Templates from './pages/Templates'
+import EmailCampaigns from './pages/EmailCampaigns'
+import Analytics from './pages/Analytics'
+import Profile from './pages/Profile'
+import Subscription from './pages/Subscription'
 
 function App() {
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <div className="App">
-            <AppRoutes />
-            <Toaster position="top-right" />
-          </div>
-        </Router>
-      </QueryClientProvider>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} /> {/* Add this route */}
+        
+        {/* Protected Routes */}
+        <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="groups" element={<Groups />} />
+          <Route path="templates" element={<Templates />} />
+          <Route path="campaigns" element={<EmailCampaigns />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="subscription" element={<Subscription />} />
+        </Route>
+        
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
     </AuthProvider>
-  );
+  )
 }
 
-export default App;
+export default App

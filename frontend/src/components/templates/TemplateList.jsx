@@ -1,66 +1,181 @@
-import React, { useState } from 'react';
-import { useGet, usePost } from '../../hooks/useApi';
-import { templatesAPI } from '../../services/api';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import Button from '../ui/Button';
-import Modal from '../ui/Modal';
-import TemplateEditor from './TemplateEditor';
-import AITemplateGenerator from './AITemplateGenerator';
-import toast from 'react-hot-toast';
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { Plus, FileText, Edit, Trash2, Sparkles } from 'lucide-react'
+import { templatesAPI } from '../../services/templates'
+import { groupsAPI } from '../../services/groups'
+import Modal from '../common/Modal'
+import TemplateForm from './TemplateForm'
+import AITemplateGenerator from './AITemplateGenerator'
+import toast from 'react-hot-toast'
 
-const TemplateList = ({ groupId }) => {
-  const { data, isLoading } = useGet(['templates', groupId], () =>
-    templatesAPI.getAll(groupId)
-  );
+const TemplateList = () => {
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [selectedGroupId, setSelectedGroupId] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
 
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null);
+  const queryClient = useQueryClient()
 
-  const deleteMutation = usePost(['templates', groupId], templatesAPI.delete, {
-    onSuccess: () => toast.success('Template deleted'),
-  });
+  const { data: templatesData, isLoading } = useQuery(
+    ['templates', selectedGroupId],
+    () => templatesAPI.getTemplates(selectedGroupId)
+  )
+  
+  const { data: groupsData } = useQuery('groups', groupsAPI.getGroups)
+  
+  const templates = templatesData?.data?.data || []
+  const groups = groupsData?.data?.data || []
 
-  const onEdit = (tpl) => {
-    setEditingTemplate(tpl);
-    setEditorOpen(true);
-  };
+  const deleteTemplateMutation = useMutation(templatesAPI.deleteTemplate, {
+    onSuccess: () => {
+      queryClient.invalidateQueries('templates')
+      toast.success('Template deleted successfully')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to delete template')
+    }
+  })
+
+  const handleEditTemplate = (template) => {
+    setSelectedTemplate(template)
+    setIsEditing(true)
+    setIsTemplateModalOpen(true)
+  }
+
+  const handleDeleteTemplate = (templateId) => {
+    if (window.confirm('Are you sure you want to delete this template?')) {
+      deleteTemplateMutation.mutate(templateId)
+    }
+  }
+
+  const closeModals = () => {
+    setIsTemplateModalOpen(false)
+    setIsAIModalOpen(false)
+    setSelectedTemplate(null)
+    setIsEditing(false)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">Templates</h3>
-        <div className="space-x-2">
-          <Button variant="outline" icon={Plus} onClick={() => setAiOpen(true)}>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Email Templates</h2>
+          <p className="text-gray-600">Create and manage email templates for your campaigns</p>
+        </div>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setIsAIModalOpen(true)}
+            className="btn-secondary flex items-center"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
             AI Generate
-          </Button>
-          <Button icon={Plus} onClick={() => setEditorOpen(true)}>
-            New
-          </Button>
+          </button>
+          <button
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="btn-primary flex items-center"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Template
+          </button>
         </div>
       </div>
 
-      {isLoading ? (
-        <p>Loading…</p>
+      {/* Group Filter */}
+      <div className="flex items-center space-x-4">
+        <label className="text-sm font-medium text-gray-700">Filter by Group:</label>
+        <select
+          value={selectedGroupId}
+          onChange={(e) => setSelectedGroupId(e.target.value)}
+          className="input-field w-auto min-w-[200px]"
+        >
+          <option value="">All Groups</option>
+          {groups.map((group) => (
+            <option key={group._id} value={group._id}>
+              {group.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {templates.length === 0 ? (
+        <div className="text-center py-12">
+          <FileText className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No templates</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Get started by creating a new template or generating one with AI.
+          </p>
+          <div className="mt-6 flex justify-center space-x-3">
+            <button
+              onClick={() => setIsAIModalOpen(true)}
+              className="btn-secondary flex items-center"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Generate
+            </button>
+            <button
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="btn-primary flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Template
+            </button>
+          </div>
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {data?.data?.templates?.map((tpl) => (
-            <div key={tpl._id} className="p-4 bg-white rounded shadow">
-              <div className="flex justify-between">
-                <div>
-                  <p className="font-semibold">{tpl.name}</p>
-                  <p className="text-xs text-gray-500">{tpl.subject}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {templates.map((template) => (
+            <div key={template._id} className="card hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center">
+                    <h3 className="text-lg font-medium text-gray-900">{template.name}</h3>
+                    {template.isAiGenerated && (
+                      <Sparkles className="w-4 h-4 ml-2 text-purple-500" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{template.subject}</p>
+                  <div className="mt-2 text-xs text-gray-400">
+                    Group: {template.group?.name}
+                  </div>
                 </div>
-                <div className="space-x-2">
-                  <button onClick={() => onEdit(tpl)} className="text-gray-500">
-                    <Edit size={16} />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEditTemplate(template)}
+                    className="p-2 text-gray-400 hover:text-primary-600 rounded-md"
+                    title="Edit Template"
+                  >
+                    <Edit className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => deleteMutation.mutate(tpl._id)}
-                    className="text-red-500"
+                    onClick={() => handleDeleteTemplate(template._id)}
+                    className="p-2 text-gray-400 hover:text-red-600 rounded-md"
+                    title="Delete Template"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 className="w-4 h-4" />
                   </button>
+                </div>
+              </div>
+              
+              <div className="mt-4 border-t pt-4">
+                <div className="text-sm text-gray-600">
+                  <div 
+                    className="line-clamp-3" 
+                    dangerouslySetInnerHTML={{ 
+                      __html: template.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...' 
+                    }}
+                  />
+                </div>
+                <div className="mt-3 text-xs text-gray-400">
+                  Created: {new Date(template.createdAt).toLocaleDateString()}
                 </div>
               </div>
             </div>
@@ -68,35 +183,31 @@ const TemplateList = ({ groupId }) => {
         </div>
       )}
 
+      {/* Template Modal */}
       <Modal
-        isOpen={editorOpen}
-        onClose={() => {
-          setEditorOpen(false);
-          setEditingTemplate(null);
-        }}
-        title={editingTemplate ? 'Edit Template' : 'Create Template'}
-        size="lg"
+        isOpen={isTemplateModalOpen}
+        onClose={closeModals}
+        title={isEditing ? 'Edit Template' : 'Create New Template'}
+        size="xl"
       >
-        <TemplateEditor
-          template={editingTemplate}
-          groupId={groupId}
-          onClose={() => {
-            setEditorOpen(false);
-            setEditingTemplate(null);
-          }}
+        <TemplateForm
+          template={selectedTemplate}
+          onClose={closeModals}
+          isEditing={isEditing}
         />
       </Modal>
 
+      {/* AI Generator Modal */}
       <Modal
-        isOpen={aiOpen}
-        onClose={() => setAiOpen(false)}
-        title="Generate with AI"
+        isOpen={isAIModalOpen}
+        onClose={closeModals}
+        title="Generate Template with AI"
         size="lg"
       >
-        <AITemplateGenerator groupId={groupId} onClose={() => setAiOpen(false)} />
+        <AITemplateGenerator onClose={closeModals} />
       </Modal>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default TemplateList;
+export default TemplateList

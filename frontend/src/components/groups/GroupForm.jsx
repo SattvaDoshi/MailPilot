@@ -1,160 +1,116 @@
-// src/components/groups/GroupForm.jsx
-import React, { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from 'react-query';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { Plus, Trash2 } from 'lucide-react';
-import { groupsAPI } from '../../services/api';
-import toast from 'react-hot-toast';
+import React from 'react'
+import { useForm } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import * as yup from 'yup'
+import { useMutation, useQueryClient } from 'react-query'
+import { groupsAPI } from '../../services/groups'
+import toast from 'react-hot-toast'
 
-import Button from '../ui/Button';
-import Input from '../ui/Input';
+const schema = yup.object({
+  name: yup.string().required('Group name is required'),
+  description: yup.string()
+})
 
-const GroupForm = ({ group, onSuccess }) => {
-  const queryClient = useQueryClient();
-  const isEditing = !!group;
+const GroupForm = ({ group, onClose, isEditing = false }) => {
+  const queryClient = useQueryClient()
 
-  const { register, control, handleSubmit, formState: { errors }, reset } = useForm({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm({
+    resolver: yupResolver(schema),
     defaultValues: {
       name: group?.name || '',
-      description: group?.description || '',
-      contacts: group?.contacts || [{ email: '', name: '' }]
+      description: group?.description || ''
     }
-  });
+  })
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'contacts'
-  });
-
-  const createMutation = useMutation(groupsAPI.create, {
+  const createMutation = useMutation(groupsAPI.createGroup, {
     onSuccess: () => {
-      queryClient.invalidateQueries('groups');
-      toast.success('Group created successfully');
-      onSuccess();
+      queryClient.invalidateQueries('groups')
+      toast.success('Group created successfully')
+      onClose()
     },
     onError: (error) => {
-      toast.error(error.response?.data?.error || 'Failed to create group');
-    },
-  });
+      toast.error(error.response?.data?.message || 'Failed to create group')
+    }
+  })
 
   const updateMutation = useMutation(
-    (data) => groupsAPI.update(group._id, data),
+    (data) => groupsAPI.updateGroup(group._id, data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('groups');
-        toast.success('Group updated successfully');
-        onSuccess();
+        queryClient.invalidateQueries('groups')
+        toast.success('Group updated successfully')
+        onClose()
       },
       onError: (error) => {
-        toast.error(error.response?.data?.error || 'Failed to update group');
-      },
+        toast.error(error.response?.data?.message || 'Failed to update group')
+      }
     }
-  );
+  )
 
   const onSubmit = (data) => {
-    // Filter out empty contacts
-    const validContacts = data.contacts.filter(contact => contact.email);
-    
-    const groupData = {
-      ...data,
-      contacts: validContacts
-    };
-
     if (isEditing) {
-      updateMutation.mutate(groupData);
+      updateMutation.mutate(data)
     } else {
-      createMutation.mutate(groupData);
+      createMutation.mutate({ ...data, contacts: [] })
     }
-  };
+  }
 
-  const isLoading = createMutation.isLoading || updateMutation.isLoading;
+  const isLoading = createMutation.isLoading || updateMutation.isLoading
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Input
-          label="Group Name"
-          {...register('name', { required: 'Group name is required' })}
-          error={errors.name?.message}
-          placeholder="e.g., Marketing Team, Newsletter Subscribers"
+        <label className="block text-sm font-medium text-gray-700">
+          Group Name
+        </label>
+        <input
+          {...register('name')}
+          type="text"
+          className="input-field"
+          placeholder="Enter group name"
         />
+        {errors.name && (
+          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+        )}
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700">
           Description (Optional)
         </label>
         <textarea
           {...register('description')}
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-          placeholder="Brief description of this group..."
+          className="input-field"
+          placeholder="Describe this group..."
         />
+        {errors.description && (
+          <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+        )}
       </div>
 
-      <div>
-        <div className="flex justify-between items-center mb-3">
-          <label className="block text-sm font-medium text-gray-700">
-            Contacts
-          </label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => append({ email: '', name: '' })}
-            icon={Plus}
-          >
-            Add Contact
-          </Button>
-        </div>
-
-        <div className="space-y-3 max-h-60 overflow-y-auto">
-          {fields.map((field, index) => (
-            <div key={field.id} className="flex space-x-3 items-start">
-              <div className="flex-1">
-                <Input
-                  {...register(`contacts.${index}.name`)}
-                  placeholder="Contact Name"
-                  size="sm"
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  {...register(`contacts.${index}.email`, {
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: 'Invalid email address'
-                    }
-                  })}
-                  placeholder="Email Address"
-                  size="sm"
-                  error={errors.contacts?.[index]?.email?.message}
-                />
-              </div>
-              {fields.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => remove(index)}
-                  className="p-2 text-red-600 hover:text-red-800"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex justify-end space-x-3 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onSuccess}>
+      <div className="flex justify-end space-x-3 pt-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn-secondary"
+        >
           Cancel
-        </Button>
-        <Button type="submit" loading={isLoading}>
-          {isEditing ? 'Update Group' : 'Create Group'}
-        </Button>
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="btn-primary"
+        >
+          {isLoading ? 'Saving...' : isEditing ? 'Update Group' : 'Create Group'}
+        </button>
       </div>
     </form>
-  );
-};
+  )
+}
 
-export default GroupForm;
+export default GroupForm

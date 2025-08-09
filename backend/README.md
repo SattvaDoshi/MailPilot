@@ -1,12 +1,12 @@
 # Project Title
 
-A brief description of your project.
+A brief description of your project goes here. Explain what the project does and its main features.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [API Documentation](#api-documentation)
+- [API Endpoints](#api-endpoints)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -14,16 +14,17 @@ A brief description of your project.
 
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/yourusername/yourproject.git
    ```
 2. Navigate to the project directory:
    ```
-   cd backend
+   cd yourproject/backend
    ```
 3. Install the dependencies:
    ```
    npm install
    ```
+4. Set up your environment variables in a `.env` file based on the provided example.
 
 ## Usage
 
@@ -31,15 +32,37 @@ To start the server, run:
 ```
 node server.js
 ```
-The server will be running on `http://localhost:3000` (or the port specified in your configuration).
+The server will start on the specified port (default is 3000).
 
-## API Documentation
+## API Endpoints
 
-Refer to the individual route files in the `src/routes` directory for detailed API documentation.
+- **Authentication**
+  - `POST /api/auth/login` - Login a user
+  - `POST /api/auth/register` - Register a new user
+
+- **Users**
+  - `GET /api/users` - Get all users
+  - `GET /api/users/:id` - Get a user by ID
+  - `PUT /api/users/:id` - Update user details
+
+- **Groups**
+  - `POST /api/groups` - Create a new group
+  - `GET /api/groups` - Get all groups
+
+- **Templates**
+  - `POST /api/templates` - Create a new email template
+  - `GET /api/templates` - Get all email templates
+
+- **Emails**
+  - `POST /api/emails/send` - Send an email
+
+- **Subscriptions**
+  - `POST /api/subscriptions` - Create a new subscription
+  - `GET /api/subscriptions` - Get all subscriptions
 
 ## Contributing
 
-Contributions are welcome! Please submit a pull request or open an issue for any suggestions or improvements.
+Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 

@@ -1,205 +1,140 @@
-// src/pages/Dashboard.jsx
-import React from 'react';
-import { useQuery } from 'react-query';
-import { subscriptionAPI, groupsAPI, emailsAPI } from '../services/api';
-import { Users, FileText, Send, TrendingUp } from 'lucide-react';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { useAuth } from '../hooks/useAuth';
-
-
-const StatCard = ({ title, value, icon: Icon, change, color = "blue" }) => (
-  <div className="bg-white overflow-hidden shadow rounded-lg">
-    <div className="p-5">
-      <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <Icon className={`h-6 w-6 text-${color}-600`} />
-        </div>
-        <div className="ml-5 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-            <dd className="text-lg font-medium text-gray-900">{value}</dd>
-          </dl>
-        </div>
-      </div>
-      {change && (
-        <div className="mt-2">
-          <div className={`flex items-baseline text-sm ${
-            change > 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
-            <TrendingUp className="h-4 w-4 mr-1" />
-            {change > 0 ? '+' : ''}{change}% from last month
-          </div>
-        </div>
-      )}
-    </div>
-  </div>
-);
+import React from 'react'
+import { useQuery } from 'react-query'
+import { BarChart3, Users, Send, TrendingUp } from 'lucide-react'
+import { authAPI } from '../services/auth'
+import { emailsAPI } from '../services/emails'
+import LoadingSpinner from '../components/common/LoadingSpinner'
 
 const Dashboard = () => {
+  const { data: userStats, isLoading: statsLoading } = useQuery(
+    'userStats',
+    authAPI.getUserStats
+  )
 
-   const { isLoaded, isSignedIn, user } = useAuth();
-  
-  console.log('Dashboard render:', { isLoaded, isSignedIn, user: !!user });
-  
-  if (!isLoaded) {
-    return <div>Loading...</div>;
-  }
-  
-  if (!isSignedIn) {
-    console.log('Not signed in from Dashboard');
-    return <div>Not authenticated</div>;
-  }
-  
-  const { data: subscription, isLoading: subLoading } = useQuery(
-    'subscription',
-    subscriptionAPI.getStatus
-  );
+  const { data: emailAnalytics, isLoading: analyticsLoading } = useQuery(
+    'emailAnalytics',
+    emailsAPI.getEmailAnalytics
+  )
 
-  const { data: groups, isLoading: groupsLoading } = useQuery(
-    'groups',
-    groupsAPI.getAll
-  );
-
-  const { data: emailHistory, isLoading: emailLoading } = useQuery(
-    'emailHistory',
-    () => emailsAPI.getHistory({ limit: 5 })
-  );
-
-  if (subLoading || groupsLoading || emailLoading) {
-    return <LoadingSpinner />;
+  if (statsLoading || analyticsLoading) {
+    return <LoadingSpinner />
   }
 
-  const stats = [
+  const stats = userStats?.data?.data
+  const analytics = emailAnalytics?.data?.data
+
+  const statCards = [
     {
       title: 'Contact Groups',
-      value: groups?.data?.groups?.length || 0,
+      value: analytics?.totalCampaigns || 0,
       icon: Users,
-      color: 'blue'
+      color: 'bg-blue-500'
     },
     {
-      title: 'Templates',
-      value: 12, // You'd get this from templates API
-      icon: FileText,
-      color: 'green'
+      title: 'Email Campaigns',
+      value: analytics?.totalCampaigns || 0,
+      icon: Send,
+      color: 'bg-green-500'
     },
     {
       title: 'Emails Sent',
-      value: subscription?.data?.subscription?.emailsUsed || 0,
-      icon: Send,
-      color: 'purple'
+      value: analytics?.totalEmailsSent || 0,
+      icon: TrendingUp,
+      color: 'bg-purple-500'
     },
     {
       title: 'Success Rate',
-      value: '98.5%',
-      icon: TrendingUp,
-      color: 'yellow'
+      value: analytics?.totalEmailsSent ? 
+        `${Math.round((analytics.totalEmailsSent / (analytics.totalEmailsSent + (analytics.totalEmailsFailed || 0))) * 100)}%` : 
+        '0%',
+      icon: BarChart3,
+      color: 'bg-orange-500'
     }
-  ];
+  ]
 
   return (
-    <div>
-      <div className="mb-8">
+    <div className="space-y-6">
+      <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Welcome back! Here's what's happening with your email campaigns.
-        </p>
-      </div>
-
-      {/* Subscription Status */}
-      <div className="mb-8 bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">Current Plan</h3>
-            <p className="text-sm text-gray-500">
-              {subscription?.data?.subscription?.plan || 'Free'} Plan
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Email Usage</p>
-            <p className="text-lg font-semibold">
-              {subscription?.data?.subscription?.emailsUsed || 0} / {' '}
-              {subscription?.data?.subscription?.emailLimit === -1 
-                ? 'Unlimited' 
-                : subscription?.data?.subscription?.emailLimit || 20
-              }
-            </p>
-          </div>
-        </div>
-        
-        {/* Progress bar */}
-        <div className="mt-4">
-          <div className="bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-primary-600 h-2 rounded-full"
-              style={{
-                width: `${Math.min(
-                  (subscription?.data?.subscription?.emailsUsed || 0) / 
-                  (subscription?.data?.subscription?.emailLimit || 20) * 100,
-                  100
-                )}%`
-              }}
-            />
-          </div>
-        </div>
+        <p className="text-gray-600">Welcome back! Here's what's happening with your campaigns.</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        {stats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statCards.map((stat, index) => {
+          const Icon = stat.icon
+          return (
+            <div key={index} className="card">
+              <div className="flex items-center">
+                <div className={`p-3 rounded-lg ${stat.color}`}>
+                  <Icon className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Recent Email Activity
-          </h3>
-          
-          {emailHistory?.data?.logs?.length > 0 ? (
-            <div className="flow-root">
-              <ul className="-mb-8">
-                {emailHistory.data.logs.slice(0, 5).map((log, index) => (
-                  <li key={log._id}>
-                    <div className="relative pb-8">
-                      {index !== emailHistory.data.logs.slice(0, 5).length - 1 && (
-                        <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" />
-                      )}
-                      <div className="relative flex space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
-                            log.status === 'sent' ? 'bg-green-500' : 'bg-red-500'
-                          }`}>
-                            <Send className="h-4 w-4 text-white" />
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                          <div>
-                            <p className="text-sm text-gray-500">
-                              Email {log.status} to{' '}
-                              <span className="font-medium text-gray-900">
-                                {log.recipientEmail}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                            {new Date(log.createdAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+      {/* Usage Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Email Usage This Month</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Emails Sent</span>
+              <span className="font-medium">{stats?.emailsSentThisMonth || 0}</span>
             </div>
-          ) : (
-            <p className="text-gray-500">No email activity yet. Start your first campaign!</p>
-          )}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Remaining</span>
+              <span className="font-medium">{stats?.remainingEmails || 0}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-primary-600 h-2 rounded-full" 
+                style={{ 
+                  width: `${stats?.emailLimit === -1 ? 0 : Math.min((stats?.emailsSentThisMonth / stats?.emailLimit) * 100, 100)}%` 
+                }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-500">
+              {stats?.emailLimit === -1 ? 'Unlimited plan' : `${stats?.emailsSentThisMonth}/${stats?.emailLimit} emails used`}
+            </p>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+          <div className="space-y-3">
+            {analytics?.recentEmails?.length ? (
+              analytics.recentEmails.map((email) => (
+                <div key={email._id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{email.subject}</p>
+                    <p className="text-xs text-gray-500">
+                      To: {email.group?.name} • {new Date(email.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    email.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    email.status === 'sending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {email.status}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No recent activity</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Dashboard;
+export default Dashboard
