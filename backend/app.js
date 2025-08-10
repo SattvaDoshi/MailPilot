@@ -85,13 +85,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Routes with validation
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/groups', groupRoutes);
-app.use('/api/templates', templateRoutes);
-app.use('/api/emails', emailRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

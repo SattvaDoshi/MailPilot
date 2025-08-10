@@ -1,10 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from "dotenv";
+dotenv.config();
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export const generateEmailTemplate = async ({ prompt, tone, purpose, groupName }) => {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    console.log("Using API key:", process.env.GEMINI_API_KEY);
 
     const fullPrompt = `
       Generate an email template for a group called "${groupName}".
@@ -34,19 +36,19 @@ export const generateEmailTemplate = async ({ prompt, tone, purpose, groupName }
       - Include contact information
     `;
 
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const text = response.text();
 
-    // Parse JSON response
+    const text = result.response.text();
+
+    // Extract and parse JSON
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('Invalid response format from AI');
-    }
+    if (!jsonMatch) throw new Error("Invalid response format from AI");
+
+    return JSON.parse(jsonMatch[0]);
+
   } catch (error) {
-    console.error('Error generating AI template:', error);
+    console.error("Error generating AI template:", error);
     throw error;
   }
 };

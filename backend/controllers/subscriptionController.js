@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
 import Subscription from '../models/Subscription.js';
+import Razorpay from 'razorpay';
 
 // Don't initialize Razorpay at module level
 let razorpay = null;
@@ -8,8 +9,6 @@ let razorpay = null;
 // Initialize Razorpay instance when needed
 const getRazorpayInstance = () => {
   if (!razorpay) {
-    // Dynamic import to ensure env vars are loaded
-    const Razorpay = require('razorpay');
     
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       throw new Error('Razorpay credentials not found in environment variables');
@@ -53,10 +52,15 @@ export const createSubscription = async (req, res) => {
     const user = await User.findById(req.userId);
     const planDetails = SUBSCRIPTION_PLANS[plan];
 
+    // Fix: Generate a shorter receipt that's under 40 characters
+    const timestamp = Date.now().toString().slice(-8); // Last 8 digits of timestamp
+    const userIdShort = user._id.toString().slice(-8); // Last 8 characters of user ID
+    const receipt = `sub_${userIdShort}_${timestamp}`; // Format: sub_12345678_87654321 (24 chars)
+
     const options = {
       amount: planDetails.price * 100, // Amount in paise
       currency: 'INR',
-      receipt: `receipt_${user._id}_${Date.now()}`,
+      receipt: receipt, // Now guaranteed to be under 40 characters
       notes: {
         userId: user._id,
         plan: plan
@@ -83,6 +87,7 @@ export const createSubscription = async (req, res) => {
     });
   }
 };
+
 
 export const verifyPayment = async (req, res) => {
   try {
