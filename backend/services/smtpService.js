@@ -50,7 +50,9 @@ export const validateSMTPSettings = async (smtpSettings) => {
   try {
     const config = getSMTPConfig(smtpSettings);
     const nodemailer = await import('nodemailer');
-    const transporter = nodemailer.createTransporter(config);
+    
+    // ✅ Fixed: Use createTransport (not createTransporter)
+    const transporter = nodemailer.createTransport(config);
     
     await transporter.verify();
     return { valid: true };
@@ -58,3 +60,4 @@ export const validateSMTPSettings = async (smtpSettings) => {
     return { valid: false, error: error.message };
   }
 };
+

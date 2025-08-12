@@ -5,24 +5,6 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import connectDB from './config/database.js';
 
-// Import routes
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import groupRoutes from './routes/groups.js';
-import templateRoutes from './routes/templates.js';
-import emailRoutes from './routes/emails.js';
-import subscriptionRoutes from './routes/subscriptions.js';
-
-// Import validation middleware
-import {
-  validateRegister,
-  validateLogin,
-  validateGroup,
-  validateTemplate,
-  validateSendEmail,
-  validateAITemplate,
-  validateSubscription
-} from './middleware/validation.js';
 
 dotenv.config();
 

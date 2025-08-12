@@ -6,10 +6,13 @@ export const sendVerificationEmail = async (email, token) => {
   try {
     // Fix: Use createTransport instead of createTransporter
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: 'gmail', // or your provider, for custom SMTP use host/port
       auth: {
         user: process.env.ADMIN_EMAIL,
         pass: process.env.ADMIN_EMAIL_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false // <-- ADD this line
       }
     });
 

@@ -6,7 +6,8 @@ import { useMutation, useQuery, useQueryClient } from 'react-query'
 import { User, Mail, Server, Shield, Eye, EyeOff } from 'lucide-react'
 import { authAPI } from '../services/auth'
 import { useAuth } from '../contexts/AuthContext'
-import TwoFactorSetup from '../components/auth/TwoFactorVerify'
+import TwoFactorSetup from '../components/auth/TwoFactorSetup'
+import TwoFactorDisable from '../components/auth/TwoFactorDisable' // ✅ Add this import
 import Modal from '../components/common/Modal'
 import toast from 'react-hot-toast'
 
@@ -28,6 +29,7 @@ const Profile = () => {
   const { user, updateUser } = useAuth()
   const [showSmtpPassword, setShowSmtpPassword] = useState(false)
   const [twoFactorModalOpen, setTwoFactorModalOpen] = useState(false)
+  const [twoFactorAction, setTwoFactorAction] = useState('setup') // ✅ Add state for action type
   const [testingSmtp, setTestingSmtp] = useState(false)
 
   const queryClient = useQueryClient()
@@ -58,7 +60,13 @@ const Profile = () => {
       toast.success('Profile updated successfully')
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to update profile')
+      console.error('Profile update error:', error)
+      
+      if (error.response?.status === 400) {
+        toast.error('Invalid credentials provided. Please check your SMTP settings.')
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to update profile')
+      }
     }
   })
 
@@ -68,8 +76,14 @@ const Profile = () => {
       setTestingSmtp(false)
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'SMTP test failed')
+      console.error('SMTP test error:', error)
       setTestingSmtp(false)
+      
+      if (error.response?.status === 400) {
+        toast.error('Invalid SMTP credentials. Please check your email and password.')
+      } else {
+        toast.error(error.response?.data?.message || 'SMTP test failed')
+      }
     }
   })
 
@@ -104,6 +118,29 @@ const Profile = () => {
     }
     setTestingSmtp(true)
     testSmtpMutation.mutate(smtpSettings)
+  }
+
+  // ✅ Enhanced modal handlers
+  const handleTwoFactorModalClose = () => {
+    setTwoFactorModalOpen(false)
+    setTwoFactorAction('setup')
+    // Refresh user data to get updated 2FA status
+    queryClient.invalidateQueries('userProfile')
+  }
+
+  const handleSetupTwoFactor = () => {
+    setTwoFactorAction('setup')
+    setTwoFactorModalOpen(true)
+  }
+
+  const handleDisableTwoFactor = () => {
+    setTwoFactorAction('disable')
+    setTwoFactorModalOpen(true)
+  }
+
+  const handleRegenerateBackupCodes = () => {
+    setTwoFactorAction('regenerate')
+    setTwoFactorModalOpen(true)
   }
 
   return (
@@ -315,30 +352,76 @@ const Profile = () => {
 
         {/* Security Settings */}
         <div className="space-y-6">
+          {/* ✅ Complete Two-Factor Authentication Section */}
           <div className="card">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Security</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Two-Factor Authentication</h3>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Two-Factor Authentication</p>
-                  <p className="text-xs text-gray-500">Add an extra layer of security</p>
+            {user?.isTwoFactorEnabled ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-900">✅ 2FA is enabled</p>
+                    <p className="text-xs text-green-600">Your account is protected with 2FA</p>
+                  </div>
+                  <button
+                    onClick={handleDisableTwoFactor}
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Disable 2FA
+                  </button>
                 </div>
-                <button
-                  onClick={() => setTwoFactorModalOpen(true)}
-                  className="btn-secondary text-sm"
-                >
-                  {user?.isTwoFactorEnabled ? 'Manage' : 'Setup'}
-                </button>
-              </div>
+                
+                <div className="bg-green-50 p-3 rounded-md">
+                  <p className="text-sm text-green-700">
+                    💡 Use your authenticator app to get 6-digit codes when signing in.
+                  </p>
+                </div>
 
-              <div className="border-t pt-4">
-                <div className="flex items-center">
-                  <Shield className="w-5 h-5 text-green-500 mr-2" />
-                  <span className="text-sm text-gray-700">
-                    Email verified: {user?.isEmailVerified ? 'Yes' : 'No'}
-                  </span>
+                {/* Additional Options for Enabled 2FA */}
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Backup Codes</p>
+                      <p className="text-xs text-gray-500">Generate new backup codes for account recovery</p>
+                    </div>
+                    <button
+                      onClick={handleRegenerateBackupCodes}
+                      className="btn-secondary text-sm"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Two-Factor Authentication</p>
+                    <p className="text-xs text-gray-500">Add an extra layer of security</p>
+                  </div>
+                  <button
+                    onClick={handleSetupTwoFactor}
+                    className="btn-secondary text-sm"
+                  >
+                    Setup 2FA
+                  </button>
+                </div>
+                
+                <div className="bg-blue-50 p-3 rounded-md">
+                  <p className="text-sm text-blue-700">
+                    🔐 You'll need an authenticator app like Google Authenticator to generate security codes.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center">
+                <Shield className="w-5 h-5 text-green-500 mr-2" />
+                <span className="text-sm text-gray-700">
+                  Email verified: {user?.isEmailVerified ? 'Yes' : 'No'}
+                </span>
               </div>
             </div>
           </div>
@@ -363,14 +446,40 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Two-Factor Modal */}
+      {/* ✅ Enhanced Two-Factor Modal with Action-Based Content */}
       <Modal
         isOpen={twoFactorModalOpen}
-        onClose={() => setTwoFactorModalOpen(false)}
-        title="Two-Factor Authentication"
+        onClose={handleTwoFactorModalClose}
+        title={
+          twoFactorAction === 'setup' ? 'Two-Factor Authentication Setup' :
+          twoFactorAction === 'disable' ? 'Disable Two-Factor Authentication' :
+          twoFactorAction === 'regenerate' ? 'Regenerate Backup Codes' : 
+          'Two-Factor Authentication'
+        }
         size="md"
       >
-        <TwoFactorSetup onClose={() => setTwoFactorModalOpen(false)} />
+        {twoFactorAction === 'setup' && (
+          <TwoFactorSetup onClose={handleTwoFactorModalClose} />
+        )}
+        {twoFactorAction === 'disable' && (
+          <TwoFactorDisable 
+            onClose={handleTwoFactorModalClose}
+            onSuccess={() => {
+              // Refresh user data
+              queryClient.invalidateQueries('userProfile')
+              // Update auth context
+              updateUser({ ...user, isTwoFactorEnabled: false })
+            }}
+          />
+        )}
+        {twoFactorAction === 'regenerate' && (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Regenerate backup codes feature coming soon...</p>
+            <button onClick={handleTwoFactorModalClose} className="btn-primary mt-4">
+              Close
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   )

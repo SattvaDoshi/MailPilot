@@ -1,70 +1,81 @@
 import React, { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
+import { Link } from 'react-router-dom'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import TwoFactorVerify from './TwoFactorVerify'
+import toast from 'react-hot-toast'
+import { useAuth } from '../../contexts/AuthContext'
 
-const schema = yup.object({
+const loginSchema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
-  password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required')
+  password: yup.string().required('Password is required')
 })
 
-const LoginForm = () => {
+const Login = () => {
+  const { login, requiresTwoFactor, loading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
-  const { login, loading, requiresTwoFactor } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
 
   const {
     register,
     handleSubmit,
     formState: { errors }
   } = useForm({
-    resolver: yupResolver(schema)
+    resolver: yupResolver(loginSchema)
   })
 
+  // ✅ Proper form submission with error handling
   const onSubmit = async (data) => {
     try {
+      console.log('Submitting login form with data:', { email: data.email }) // Debug log
+      
       const result = await login(data)
-      if (result.success) {
-        const from = location.state?.from?.pathname || '/dashboard'
-        navigate(from, { replace: true })
+      
+      if (result?.requiresTwoFactor) {
+        // 2FA required - component will re-render to show 2FA form
+        console.log('2FA required, staying on page')
+        return
       }
+      
+      // Success case is handled in AuthContext (redirect to dashboard)
+      console.log('Login successful')
+      
     } catch (error) {
-      // Error is handled in AuthContext
+      // ✅ Error handling - prevent page reload
+      console.error('Login form error:', error)
+      
+      // Error toast is already shown in AuthContext, but ensure no page reload
+      // Don't throw the error again or it might cause page reload
     }
   }
 
+  // Show 2FA verification if required
   if (requiresTwoFactor) {
-    return <TwoFactorVerify />
+    return <TwoFactorVerify onBack={() => window.location.reload()} />
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              to="/register"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
-              create a new account
+          <p className="mt-2 text-sm text-gray-600">
+            Don't have an account?{' '}
+            <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
+              Sign up here
             </Link>
           </p>
         </div>
-        
+
+        {/* ✅ Prevent default form submission */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                Email Address
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -118,10 +129,19 @@ const LoginForm = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
+          </div>
+
+          <div className="text-center">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-primary-600 hover:text-primary-500"
+            >
+              Forgot your password?
+            </Link>
           </div>
         </form>
       </div>
@@ -129,4 +149,4 @@ const LoginForm = () => {
   )
 }
 
-export default LoginForm
+export default Login

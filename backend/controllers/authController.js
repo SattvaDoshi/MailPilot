@@ -3,8 +3,9 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import User from '../models/User.js';
 import Subscription from '../models/Subscription.js';
-import { sendVerificationEmail, sendTwoFactorEmail } from '../services/emailService.js';
+import { sendVerificationEmail } from '../services/emailService.js';
 import { generateToken } from '../utils/helpers.js';
+import { verifyToken } from '../services/mfaService.js';
 
 export const register = async (req, res) => {
   try {
@@ -46,6 +47,8 @@ export const register = async (req, res) => {
       message: 'User registered successfully. Please verify your email.'
     });
   } catch (error) {
+    console.log(error);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -57,7 +60,7 @@ export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.params;
 
-    console.log('Verification token received:', token); // Debug log
+    console.log('Verification token received:', token);
 
     const user = await User.findOne({ emailVerificationToken: token });
     if (!user) {
@@ -67,19 +70,19 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    // Check if already verified
+    // If user is already verified, return success (idempotent behavior)
     if (user.isEmailVerified) {
       return res.status(200).json({
         success: true,
-        message: 'Email already verified'
+        message: 'Email already verified successfully'
       });
     }
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = undefined; // Clear the token
+    user.emailVerificationToken = undefined;
     await user.save();
 
-    console.log('Email verified for user:', user.email); // Debug log
+    console.log('Email verified for user:', user.email);
 
     res.status(200).json({
       success: true,
@@ -94,11 +97,11 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-
+// In your authController.js login function, ensure proper token verification
 export const login = async (req, res) => {
   try {
     const { email, password, twoFactorCode } = req.body;
-
+    
     const user = await User.findOne({ email }).populate('subscription');
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
@@ -107,13 +110,7 @@ export const login = async (req, res) => {
       });
     }
 
-    if (!user.isEmailVerified) {
-      return res.status(401).json({
-        success: false,
-        message: 'Please verify your email first'
-      });
-    }
-
+    // Handle 2FA if enabled
     if (user.isTwoFactorEnabled) {
       if (!twoFactorCode) {
         return res.status(200).json({
@@ -122,27 +119,31 @@ export const login = async (req, res) => {
           message: 'Two-factor authentication required'
         });
       }
-
-      const verified = speakeasy.totp.verify({
-        secret: user.twoFactorSecret,
-        encoding: 'base32',
-        token: twoFactorCode
-      });
-
-      if (!verified) {
+      
+      // Verify 2FA code
+      const isValidToken = verifyToken(user.twoFactorSecret, twoFactorCode);
+      if (!isValidToken) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid two-factor code'
+          message: 'Invalid two-factor authentication code'
         });
       }
     }
 
+    // ✅ PROPER JWT GENERATION
     const token = jwt.sign(
-      { userId: user._id },
+      { 
+        id: user._id,
+        email: user.email 
+      },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { 
+        expiresIn: '24h' 
+      }
     );
-
+    
+    console.log('Generated JWT token:', token.split('.').length === 3 ? 'Valid JWT format' : 'Invalid JWT format');
+    
     res.json({
       success: true,
       token,
@@ -150,16 +151,21 @@ export const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        isEmailVerified: user.isEmailVerified,
+        isTwoFactorEnabled: user.isTwoFactorEnabled,
         subscription: user.subscription
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Login failed'
     });
   }
 };
+
+
 
 export const setupTwoFactor = async (req, res) => {
   try {

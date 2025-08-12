@@ -1,13 +1,17 @@
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
-import { Check, Sparkles, Crown, Zap } from 'lucide-react'
+import { Check, Sparkles, Crown, Zap, X, RefreshCw, AlertCircle } from 'lucide-react'
 import { subscriptionsAPI } from '../../services/subscriptions'
 import { useAuth } from '../../contexts/AuthContext'
+import Modal from '../common/Modal'
 import toast from 'react-hot-toast'
 
 const PricingPlans = () => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [selectedPlan, setSelectedPlan] = useState('')
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const selectedPlanRef = useRef('')
 
   const { data: plansData } = useQuery('subscriptionPlans', subscriptionsAPI.getPlans)
   const { data: currentSubscription } = useQuery('currentSubscription', subscriptionsAPI.getCurrentSubscription)
@@ -15,22 +19,35 @@ const PricingPlans = () => {
   const plans = plansData?.data?.data
   const userSubscription = currentSubscription?.data?.data
 
+  const verifyPaymentMutation = useMutation(subscriptionsAPI.verifySubscription, {
+    onSuccess: () => {
+      queryClient.invalidateQueries('currentSubscription');
+      queryClient.invalidateQueries('userStats');
+      toast.success('Payment successful! Your subscription has been activated.');
+    },
+    onError: (error) => {
+      console.error('Payment verification failed:', error);
+      toast.error(error.response?.data?.message || 'Payment verification failed');
+    }
+  });
+
   const createSubscriptionMutation = useMutation(subscriptionsAPI.createSubscription, {
     onSuccess: (data) => {
       const options = {
         key: data.data.data.key,
-        amount: data.data.data.amount,
-        currency: data.data.data.currency,
+        subscription_id: data.data.data.subscriptionId,
         name: 'Bulk Email Sender',
-        description: 'Subscription Payment',
-        order_id: data.data.data.orderId,
+        description: `${selectedPlanRef.current.charAt(0).toUpperCase() + selectedPlanRef.current.slice(1)} Plan Subscription`,
         handler: function (response) {
+          console.log('✅ Payment Success Response:', response);
+          console.log('Using plan for verification:', selectedPlanRef.current);
+
           verifyPaymentMutation.mutate({
-            razorpay_order_id: response.razorpay_order_id,
+            razorpay_subscription_id: response.razorpay_subscription_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
-            plan: selectedPlan
-          })
+            plan: selectedPlanRef.current
+          });
         },
         prefill: {
           name: user?.name,
@@ -38,33 +55,144 @@ const PricingPlans = () => {
         },
         theme: {
           color: '#3b82f6'
+        },
+        modal: {
+          ondismiss: function () {
+            console.log('❌ Payment modal dismissed');
+            toast.error('Payment cancelled');
+          }
         }
-      }
+      };
 
-      const rzp = new window.Razorpay(options)
-      rzp.open()
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        console.error('❌ Payment failed:', response.error);
+        toast.error('Payment failed: ' + response.error.description);
+      });
+
+      rzp.open();
     },
     onError: (error) => {
+      console.error('Subscription creation failed:', error);
       toast.error(error.response?.data?.message || 'Failed to create subscription')
     }
   })
 
-  const verifyPaymentMutation = useMutation(subscriptionsAPI.verifyPayment, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('currentSubscription')
-      queryClient.invalidateQueries('userStats')
-      toast.success('Payment successful! Your subscription has been activated.')
+  // ✅ Updated for cancel-then-create logic
+  const changeSubscriptionMutation = useMutation(subscriptionsAPI.changeSubscriptionPlan, {
+    onSuccess: (data) => {
+      console.log('Plan change response (cancel-then-create):', data.data);
+
+      if (data.data.requiresPayment) {
+        // ✅ Always requires payment for paid plans after cancellation
+        console.log('Opening payment for new plan:', data.data.planType);
+
+        const options = {
+          key: data.data.key,
+          subscription_id: data.data.subscriptionId,
+          name: 'Bulk Email Sender',
+          description: `${data.data.planType.charAt(0).toUpperCase() + data.data.planType.slice(1)} Plan - ₹${data.data.amount}/month`,
+          handler: function (response) {
+            console.log('✅ Payment Success for New Plan:', response);
+
+            // Verify payment for the new subscription
+            verifyPaymentMutation.mutate({
+              razorpay_subscription_id: response.razorpay_subscription_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              plan: data.data.planType
+            });
+          },
+          prefill: {
+            name: user?.name,
+            email: user?.email
+          },
+          theme: {
+            color: '#3b82f6'
+          },
+          modal: {
+            ondismiss: function () {
+              toast.error('Payment cancelled. You remain on the free plan.');
+              // Refresh to show free plan state
+              queryClient.invalidateQueries('currentSubscription');
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          console.error('❌ Payment failed:', response.error);
+          toast.error(`Payment failed: ${response.error.description}. You remain on the free plan.`);
+          queryClient.invalidateQueries('currentSubscription');
+        });
+
+        rzp.open();
+
+        // Show immediate feedback about cancellation
+        toast.success(`Current plan cancelled. Complete payment to activate ${data.data.planType} plan.`);
+
+        // Refresh UI to show cancelled state
+        queryClient.invalidateQueries('currentSubscription');
+
+      } else {
+        // ✅ No payment required (free plan)
+        queryClient.invalidateQueries('currentSubscription');
+        queryClient.invalidateQueries('userStats');
+        toast.success(data.data.message || 'Plan changed successfully!');
+      }
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Payment verification failed')
+      console.error('❌ Plan change error:', error);
+      toast.error(error.response?.data?.message || 'Failed to change subscription plan');
     }
-  })
+  });
 
-  const [selectedPlan, setSelectedPlan] = React.useState('')
+  // ✅ Updated confirmation message for cancel-then-create
+  const handleChangePlan = (planType) => {
+    const planName = planType.charAt(0).toUpperCase() + planType.slice(1);
+    const currentPlan = userSubscription?.plan || 'free';
+
+    let confirmMessage;
+
+    if (planType === 'free') {
+      confirmMessage = `Cancel current subscription and switch to Free plan?`;
+    } else {
+      confirmMessage = `Cancel current subscription and switch to ${planName} plan?\n\nNote: Your current plan will be cancelled immediately and you'll need to complete payment for the new plan.`;
+    }
+
+    if (window.confirm(confirmMessage)) {
+      console.log('Plan change confirmed (cancel-then-create):', { from: currentPlan, to: planType });
+      setSelectedPlan(planType);
+      selectedPlanRef.current = planType;
+      changeSubscriptionMutation.mutate(planType);
+    }
+  };
+
+  const cancelSubscriptionMutation = useMutation(subscriptionsAPI.cancelSubscription, {
+    onSuccess: () => {
+      queryClient.invalidateQueries('currentSubscription');
+      toast.success('Subscription cancelled successfully');
+      setCancelModalOpen(false);
+    },
+    onError: (error) => {
+      const errorData = error.response?.data;
+
+      if (errorData?.error_type === 'UPI_CANCEL_NOT_ALLOWED') {
+        toast.error('UPI subscriptions can only be cancelled from your UPI app (PhonePe, Google Pay, etc.). Please cancel from your UPI app.');
+      } else {
+        toast.error(errorData?.message || 'Failed to cancel subscription');
+      }
+    }
+  });
 
   const handleSubscribe = (planType) => {
     setSelectedPlan(planType)
+    selectedPlanRef.current = planType
     createSubscriptionMutation.mutate(planType)
+  }
+
+  const handleCancelSubscription = (cancelAtCycleEnd) => {
+    cancelSubscriptionMutation.mutate({ cancelAtCycleEnd })
   }
 
   const planConfigs = [
@@ -87,7 +215,6 @@ const PricingPlans = () => {
       price: 199,
       icon: Zap,
       color: 'blue',
-      popular: false,
       features: [
         '100 emails per month',
         '5 contact groups',
@@ -157,6 +284,23 @@ const PricingPlans = () => {
         <p className="mt-2 text-gray-600">Select the perfect plan for your email marketing needs</p>
       </div>
 
+      {/* ✅ Added Notice About Plan Changes */}
+      {userSubscription && userSubscription.plan !== 'free' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h4 className="text-amber-800 font-medium">Plan Change Process</h4>
+              <p className="text-amber-700 text-sm mt-1">
+                <strong>Note:</strong> When changing plans, your current subscription will be cancelled immediately 
+                and you'll need to complete a new payment for the selected plan. This ensures a clean transition 
+                and works with all payment methods.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {planConfigs.map((plan) => {
           const Icon = plan.icon
@@ -198,24 +342,59 @@ const PricingPlans = () => {
 
               <div className="mt-8">
                 {isCurrentPlan ? (
-                  <button className="w-full py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-gray-100 cursor-not-allowed">
-                    Current Plan
-                  </button>
+                  <div className="space-y-2">
+                    <button className="w-full py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-gray-100 cursor-not-allowed">
+                      Current Plan
+                    </button>
+                    {plan.type !== 'free' && (
+                      <button
+                        onClick={() => setCancelModalOpen(true)}
+                        className="w-full py-2 px-4 border border-red-300 rounded-md text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        Cancel Subscription
+                      </button>
+                    )}
+                  </div>
                 ) : plan.type === 'free' ? (
-                  <button className="w-full py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-gray-100 cursor-not-allowed">
-                    Free Plan
-                  </button>
+                  userSubscription?.plan !== 'free' && (
+                    <button
+                      onClick={() => handleChangePlan('free')}
+                      disabled={changeSubscriptionMutation.isLoading}
+                      className="w-full py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {changeSubscriptionMutation.isLoading ? 'Processing...' : 'Switch to Free'}
+                    </button>
+                  )
                 ) : (
-                  <button
-                    onClick={() => handleSubscribe(plan.type)}
-                    disabled={createSubscriptionMutation.isLoading}
-                    className={`w-full py-2 px-4 rounded-md text-sm font-medium text-white ${getButtonClasses(plan.color)} transition-colors disabled:opacity-50`}
-                  >
-                    {createSubscriptionMutation.isLoading && selectedPlan === plan.type
-                      ? 'Processing...'
-                      : 'Subscribe Now'
-                    }
-                  </button>
+                  <div className="space-y-2">
+                    {userSubscription?.plan && userSubscription.plan !== 'free' ? (
+                      <button
+                        onClick={() => handleChangePlan(plan.type)}
+                        disabled={changeSubscriptionMutation.isLoading}
+                        className={`w-full py-2 px-4 rounded-md text-sm font-medium text-white ${getButtonClasses(plan.color)} transition-colors disabled:opacity-50 flex items-center justify-center`}
+                      >
+                        {changeSubscriptionMutation.isLoading ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          `Switch to ${plan.name} - ₹${plan.price}/month`
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSubscribe(plan.type)}
+                        disabled={createSubscriptionMutation.isLoading}
+                        className={`w-full py-2 px-4 rounded-md text-sm font-medium text-white ${getButtonClasses(plan.color)} transition-colors disabled:opacity-50`}
+                      >
+                        {createSubscriptionMutation.isLoading && selectedPlan === plan.type
+                          ? 'Processing...'
+                          : `Subscribe to ${plan.name}`
+                        }
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -247,11 +426,60 @@ const PricingPlans = () => {
           </div>
           {userSubscription.endDate && (
             <div className="mt-2 text-sm text-blue-700">
-              Expires: {new Date(userSubscription.endDate).toLocaleDateString()}
+              {userSubscription.cancelledAt ?
+                `Cancelled on: ${new Date(userSubscription.cancelledAt).toLocaleDateString()}` :
+                `Next billing: ${new Date(userSubscription.endDate).toLocaleDateString()}`
+              }
             </div>
           )}
         </div>
       )}
+
+      {/* Cancel Subscription Modal */}
+      {/* Cancel Subscription Modal */}
+<Modal
+  isOpen={cancelModalOpen}
+  onClose={() => setCancelModalOpen(false)}
+  title="Cancel Subscription"
+  size="md"
+>
+  <div className="space-y-4">
+    <p className="text-gray-600">
+      How would you like to cancel your subscription?
+    </p>
+
+    <div className="space-y-3">
+      <button
+        onClick={() => handleCancelSubscription(false)}
+        disabled={cancelSubscriptionMutation.isLoading}
+        className="w-full p-4 border border-red-300 rounded-lg text-left hover:bg-red-50"
+      >
+        <div className="font-medium text-red-900">Cancel Immediately</div>
+        <div className="text-sm text-red-600">Your subscription will be cancelled right now</div>
+      </button>
+
+      {/* ✅ Fix: Add missing closing </button> tag */}
+      <button
+        onClick={() => handleCancelSubscription(true)}
+        disabled={cancelSubscriptionMutation.isLoading}
+        className="w-full p-4 border border-gray-300 rounded-lg text-left hover:bg-gray-50"
+      >
+        <div className="font-medium text-gray-900">Cancel at Billing Cycle End</div>
+        <div className="text-sm text-gray-600">Keep access until your current billing period ends</div>
+      </button> {/* ✅ This closing tag was missing */}
+    </div>
+
+    <div className="flex justify-end space-x-3 pt-4">
+      <button
+        onClick={() => setCancelModalOpen(false)}
+        className="btn-secondary"
+      >
+        Keep Subscription
+      </button>
+    </div>
+  </div>
+</Modal>
+
     </div>
   )
 }

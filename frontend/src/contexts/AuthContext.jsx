@@ -90,7 +90,7 @@ export const AuthProvider = ({ children }) => {
         })
         return { requiresTwoFactor: true }
       }
-
+  
       const { token, user } = response.data
       localStorage.setItem('token', token)
       dispatch({
@@ -99,32 +99,56 @@ export const AuthProvider = ({ children }) => {
       })
       
       toast.success('Login successful!')
+      
+      setTimeout(() => {
+        window.location.href = '/app/dashboard'
+      }, 1000)
+      
       return { success: true }
     } catch (error) {
+      // ✅ Proper error handling - don't reload page
       dispatch({ type: 'SET_LOADING', payload: false })
+      
+      console.error('Login error:', error)
+      
       const message = error.response?.data?.message || 'Login failed'
       toast.error(message)
-      throw error
+      
+      // ✅ Don't throw the error - just return or let component handle it
+      return { success: false, error: message }
     }
   }
-
+  
+  
   const verifyTwoFactor = async (code) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
+      
+      // ✅ Fix: Ensure proper payload structure
       const response = await authAPI.login({
         ...state.tempCredentials,
-        twoFactorCode: code
+        twoFactorCode: code.trim() // Remove whitespace
       })
-
-      const { token, user } = response.data
-      localStorage.setItem('token', token)
-      dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: { user, token }
-      })
-      
-      toast.success('Two-factor authentication successful!')
-      return { success: true }
+  
+      // ✅ Fix: Check response structure
+      if (response.data.success) {
+        const { token, user } = response.data
+        localStorage.setItem('token', token)
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user, token }
+        })
+        
+        toast.success('Two-factor authentication successful!')
+        
+        setTimeout(() => {
+          window.location.href = '/app/dashboard'
+        }, 1000)
+        
+        return { success: true }
+      } else {
+        throw new Error(response.data.message || 'Verification failed')
+      }
     } catch (error) {
       dispatch({ type: 'SET_LOADING', payload: false })
       const message = error.response?.data?.message || 'Verification failed'
@@ -132,7 +156,8 @@ export const AuthProvider = ({ children }) => {
       throw error
     }
   }
-
+  
+  
   const register = async (userData) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })

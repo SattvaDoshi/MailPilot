@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Loader } from 'lucide-react'
 import { authAPI } from '../services/auth'
@@ -6,11 +6,16 @@ import { authAPI } from '../services/auth'
 const VerifyEmail = () => {
   const { token } = useParams()
   const navigate = useNavigate()
-  const [status, setStatus] = useState('loading') // loading, success, error
+  const [status, setStatus] = useState('loading')
   const [message, setMessage] = useState('')
+  const hasVerified = useRef(false) // Prevent multiple calls
 
   useEffect(() => {
     const verifyEmail = async () => {
+      // Prevent multiple calls
+      if (hasVerified.current) return
+      hasVerified.current = true
+
       try {
         console.log('Verifying token:', token)
         const response = await authAPI.verifyEmail(token)
@@ -28,9 +33,9 @@ const VerifyEmail = () => {
       }
     }
 
-    if (token) {
+    if (token && !hasVerified.current) {
       verifyEmail()
-    } else {
+    } else if (!token) {
       setStatus('error')
       setMessage('Invalid verification link')
     }

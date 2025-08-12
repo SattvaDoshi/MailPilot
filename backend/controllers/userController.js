@@ -1,11 +1,33 @@
 import User from '../models/User.js';
 import Group from '../models/Group.js';
 import Email from '../models/Email.js';
+import Subscription from '../models/Subscription.js';
 import bcrypt from 'bcryptjs';
+import { validateSMTPSettings } from '../services/smtpService.js';
 
+// Get user profile
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+      .select('-password -twoFactorSecret')
+      .populate('subscription');
+    
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Update user profile
 export const updateProfile = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, smtpSettings } = req.body;
     
     const user = await User.findById(req.userId);
     
@@ -25,6 +47,19 @@ export const updateProfile = async (req, res) => {
     
     if (name) user.name = name;
     
+    // Handle SMTP settings if provided
+    if (smtpSettings) {
+      // Validate SMTP settings before saving
+      const validation = await validateSMTPSettings(smtpSettings);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: `SMTP validation failed: ${validation.error}`
+        });
+      }
+      user.smtpSettings = smtpSettings;
+    }
+    
     await user.save();
     
     res.json({
@@ -34,10 +69,12 @@ export const updateProfile = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        isEmailVerified: user.isEmailVerified
+        isEmailVerified: user.isEmailVerified,
+        smtpSettings: user.smtpSettings
       }
     });
   } catch (error) {
+    console.error('Profile update error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -45,6 +82,7 @@ export const updateProfile = async (req, res) => {
   }
 };
 
+// Change password
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -76,6 +114,7 @@ export const changePassword = async (req, res) => {
   }
 };
 
+// Delete account
 export const deleteAccount = async (req, res) => {
   try {
     const { password } = req.body;
@@ -94,6 +133,7 @@ export const deleteAccount = async (req, res) => {
     // Delete user's data
     await Group.deleteMany({ user: req.userId });
     await Email.deleteMany({ user: req.userId });
+    await Subscription.deleteMany({ user: req.userId });
     await User.findByIdAndDelete(req.userId);
     
     res.json({
@@ -108,6 +148,7 @@ export const deleteAccount = async (req, res) => {
   }
 };
 
+// Get dashboard statistics
 export const getDashboardStats = async (req, res) => {
   try {
     const userId = req.userId;
@@ -133,13 +174,71 @@ export const getDashboardStats = async (req, res) => {
           emailsSentThisMonth: user.emailsSentThisMonth,
           emailsRemaining: user.subscription.emailLimit === -1 ? 
                           'unlimited' : 
-                          user.subscription.emailLimit - user.emailsSentThisMonth
+                          Math.max(0, user.subscription.emailLimit - user.emailsSentThisMonth)
         },
         recentActivity: recentEmails,
         subscription: user.subscription
       }
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get user statistics (for subscription info)
+export const getUserStats = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate('subscription');
+    
+    if (!user.subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'No subscription found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        emailsSentThisMonth: user.emailsSentThisMonth,
+        emailLimit: user.subscription.emailLimit,
+        remainingEmails: user.subscription.emailLimit === -1 ? 'unlimited' : 
+                        Math.max(0, user.subscription.emailLimit - user.emailsSentThisMonth),
+        planType: user.subscription.plan,
+        subscriptionStatus: user.subscription.isActive
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Test SMTP settings
+export const testSMTPSettings = async (req, res) => {
+  try {
+    const { smtpSettings } = req.body;
+    
+    if (!smtpSettings) {
+      return res.status(400).json({
+        success: false,
+        message: 'SMTP settings are required'
+      });
+    }
+    
+    const validation = await validateSMTPSettings(smtpSettings);
+    
+    res.json({
+      success: validation.valid,
+      message: validation.valid ? 'SMTP settings are valid' : validation.error
+    });
+  } catch (error) {
+    console.error('SMTP test error:', error);
     res.status(500).json({
       success: false,
       message: error.message

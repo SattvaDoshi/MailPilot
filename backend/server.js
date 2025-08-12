@@ -9,6 +9,9 @@ import groupRoutes from './routes/groups.js';
 import templateRoutes from './routes/templates.js';
 import emailRoutes from './routes/emails.js';
 import subscriptionRoutes from './routes/subscriptions.js';
+import mfaRoutes from './routes/multiFactor.js';
+import webhookRoutes from './routes/webhooks.js';
+
 import morgan from 'morgan';
 
 dotenv.config();
@@ -26,6 +29,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Routes
+
+// Add this route
+app.use('/api/mfa', mfaRoutes);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);

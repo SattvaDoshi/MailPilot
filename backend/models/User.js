@@ -28,6 +28,12 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  twoFactorSecret: {
+    type: String
+  },
+  twoFactorBackupCodes: [{
+    type: String
+  }],
   smtpSettings: {
     provider: {
       type: String,

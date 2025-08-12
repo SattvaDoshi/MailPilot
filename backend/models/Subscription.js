@@ -32,8 +32,14 @@ const subscriptionSchema = new mongoose.Schema({
     default: Date.now
   },
   endDate: Date,
+  cancelledAt: Date,
+  cancelAtCycleEnd: {
+    type: Boolean,
+    default: false
+  },
   razorpaySubscriptionId: String,
-  razorpayPaymentId: String
+  razorpayPaymentId: String,
+  razorpayPlanId: String
 }, {
   timestamps: true
 });

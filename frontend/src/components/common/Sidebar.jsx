@@ -8,18 +8,23 @@ import {
   BarChart3, 
   Settings, 
   CreditCard,
-  X
+  X,
+  Home,
+  Mail,
+  User
 } from 'lucide-react'
 
+// In your navigation items, update the paths:
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Contact Groups', href: '/groups', icon: Users },
-  { name: 'Templates', href: '/templates', icon: FileText },
-  { name: 'Email Campaigns', href: '/campaigns', icon: Send },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Profile', href: '/profile', icon: Settings },
-  { name: 'Subscription', href: '/subscription', icon: CreditCard },
+  { name: 'Dashboard', href: '/app/dashboard', icon: Home, current: location.pathname === '/app/dashboard' },
+  { name: 'Groups', href: '/app/groups', icon: Users, current: location.pathname === '/app/groups' },
+  { name: 'Templates', href: '/app/templates', icon: FileText, current: location.pathname === '/app/templates' },
+  { name: 'Campaigns', href: '/app/campaigns', icon: Mail, current: location.pathname === '/app/campaigns' },
+  { name: 'Analytics', href: '/app/analytics', icon: BarChart3, current: location.pathname === '/app/analytics' },
+  { name: 'Profile', href: '/app/profile', icon: User, current: location.pathname === '/app/profile' },
+  { name: 'Subscription', href: '/app/subscription', icon: CreditCard, current: location.pathname === '/app/subscription' },
 ]
+
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   return (
