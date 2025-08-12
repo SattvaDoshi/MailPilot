@@ -5,12 +5,19 @@ export const setupTwoFactor = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     
+    // Generate fresh secret
     const secret = generateSecret(user.email);
     const qrCode = await generateQRCode(secret);
     
-    // Store secret temporarily (not yet enabled)
+    // Store exact secret used for QR code
     user.twoFactorSecret = secret.base32;
     await user.save();
+    
+    console.log('✅ Generated new 2FA secret:', {
+      userId: user._id,
+      secretLength: secret.base32.length,
+      secretSample: secret.base32.substring(0, 8) + '...'
+    });
     
     res.json({
       success: true,
@@ -21,13 +28,11 @@ export const setupTwoFactor = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('2FA setup error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to setup two-factor authentication'
-    });
+    console.error('❌ 2FA setup error:', error);
+    res.status(500).json({ success: false, message: 'Failed to setup 2FA' });
   }
 };
+
 
 export const enableTwoFactor = async (req, res) => {
   try {
@@ -158,3 +163,23 @@ export const regenerateBackupCodes = async (req, res) => {
   }
 };
 
+export const resetTwoFactor = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // Clear all 2FA data
+    user.isTwoFactorEnabled = false;
+    user.twoFactorSecret = undefined;
+    user.twoFactorBackupCodes = [];
+    await user.save();
+    
+    console.log(`🔄 Reset 2FA for user: ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: '2FA reset successfully. Please set up again with fresh QR code.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

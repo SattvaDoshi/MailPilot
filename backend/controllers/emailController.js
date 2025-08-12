@@ -4,7 +4,6 @@ import Group from '../models/Group.js';
 import Template from '../models/Template.js';
 import User from '../models/User.js';
 import { sendBulkEmails } from '../services/emailService.js';
-import { personalizeContent } from '../utils/helpers.js';
 
 export const sendEmails = async (req, res) => {
   try {
