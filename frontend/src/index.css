@@ -15,9 +15,15 @@
     overflow: hidden;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar - responsive sizing */
   ::-webkit-scrollbar {
     width: 6px;
+  }
+  
+  @media (max-width: 768px) {
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
   }
   
   ::-webkit-scrollbar-track {
@@ -34,26 +40,52 @@
 }
 
 @layer components {
+  /* Primary Button - Responsive */
   .btn-primary {
-    @apply bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-500/25 inline-flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+    @apply bg-primary-600 rounded-lg cursor-pointer hover:bg-primary-700 text-white font-medium py-2 px-4 flex items-center transition-all duration-200;
+    @apply sm:py-3 sm:px-6 text-sm sm:text-base;
+    @apply focus:outline-none focus:ring-4 focus:ring-primary-500/25;
+    @apply active:scale-95;
   }
   
+  /* Secondary Button - Responsive */
   .btn-secondary {
-    @apply bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3 px-6 rounded-xl border-2 border-slate-200 hover:border-slate-300 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-slate-500/25 inline-flex items-center justify-center shadow-lg hover:shadow-xl;
+    @apply bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2 px-4 rounded-xl border-2 border-slate-200 hover:border-slate-300 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-slate-500/25 inline-flex items-center justify-center shadow-lg hover:shadow-xl;
+    @apply sm:py-3 sm:px-6 text-sm sm:text-base;
+    @apply active:scale-95;
   }
   
+  /* Input Field - Responsive */
   .input-field {
-    @apply w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/25 focus:border-blue-500 transition-all duration-200 bg-white;
+    @apply w-full px-3 py-2 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/25 focus:border-blue-500 transition-all duration-200 bg-white;
+    @apply sm:px-4 sm:py-3;
+    @apply text-sm sm:text-base;
+    font-size: max(16px, 1rem);
   }
   
+  /* Card - Responsive */
   .card {
-    @apply bg-white rounded-2xl shadow-lg border border-slate-200 p-8 hover:shadow-xl transition-all duration-300;
+    @apply bg-white rounded-2xl shadow-lg border border-slate-200 p-4 hover:shadow-xl transition-all duration-300;
+    @apply sm:p-6 lg:p-8;
+    @apply mb-4 sm:mb-6;
   }
 
+  /* Responsive Grid Classes */
+  .grid-responsive-cards {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+  }
+  
+  /* Responsive Container */
+  .container-responsive {
+    @apply max-w-full px-4 sm:px-6 lg:px-8 xl:max-w-7xl mx-auto;
+  }
+
+  /* Gradient Text */
   .gradient-text {
     @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
   }
 
+  /* Grid Pattern */
   .bg-grid-pattern {
     background-image: 
       linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
@@ -62,54 +94,17 @@
   }
 }
 
-/* Custom animations */
+/* Rest of your animations and utilities... */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
-}
-
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
 
-.animate-pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
-}
-
-.animate-gradient {
-  animation: gradient-shift 3s ease infinite;
-  background-size: 200% 200%;
-}
-
-/* Loading animations */
-.loader {
-  border-top-color: #3b82f6;
-  animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Smooth transitions for mobile */
-@media (max-width: 768px) {
-  .transition-mobile {
-    transition: all 0.3s ease;
-  }
-}
-
-/* Focus styles for accessibility */
+/* Focus styles */
 .focus-visible:focus {
   @apply outline-none ring-4 ring-blue-500/25 ring-offset-2;
 }

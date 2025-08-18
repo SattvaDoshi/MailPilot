@@ -66,29 +66,38 @@ const TemplateList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Email Templates</h2>
-          <p className="text-gray-600">Create and manage email templates for your campaigns</p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setIsAIModalOpen(true)}
-            className="btn-secondary flex items-center"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            AI Generate
-          </button>
-          <button
-            onClick={() => setIsTemplateModalOpen(true)}
-            className="btn-primary flex items-center"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Template
-          </button>
-        </div>
-      </div>
-
+<section className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 lg:p-8 border border-blue-100 shadow-sm">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:items-center sm:justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Email Templates</h1>
+              <p className="text-gray-600 text-sm sm:text-base">
+                Create and manage reusable email templates for your campaigns
+              </p>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+              <button
+                onClick={() => setIsAIModalOpen(true)}
+                className="flex items-center justify-center px-4 py-2 bg-white text-blue-600 border-2 border-blue-200 rounded-lg hover:bg-purple-50 transition-all duration-200 font-medium text-sm sm:text-base"
+                aria-label="Generate template with AI"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                <span className="sm:hidden">Generate with AI</span>
+                <span className="hidden sm:inline">AI Generate</span>
+              </button>
+              <button
+                onClick={() => setIsTemplateModalOpen(true)}
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm sm:text-base shadow-sm"
+                aria-label="Create new template"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="sm:hidden">Create Template</span>
+                <span className="hidden sm:inline">New Template</span>
+              </button>
+            </div>
+          </div>
+        </section>
       {/* Group Filter */}
       <div className="flex items-center space-x-4">
         <label className="text-sm font-medium text-gray-700">Filter by Group:</label>

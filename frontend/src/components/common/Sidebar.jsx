@@ -1,82 +1,110 @@
 import React from 'react'
-import { NavLink } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
-  Send, 
-  BarChart3, 
-  Settings, 
+import { NavLink, useLocation } from 'react-router-dom'
+import {
+  Users,
+  FileText,
+  Mail,
+  BarChart3,
   CreditCard,
   X,
   Home,
-  Mail,
   User
 } from 'lucide-react'
 
-// In your navigation items, update the paths:
 const navigation = [
-  { name: 'Dashboard', href: '/app/dashboard', icon: Home, current: location.pathname === '/app/dashboard' },
-  { name: 'Groups', href: '/app/groups', icon: Users, current: location.pathname === '/app/groups' },
-  { name: 'Templates', href: '/app/templates', icon: FileText, current: location.pathname === '/app/templates' },
-  { name: 'Campaigns', href: '/app/campaigns', icon: Mail, current: location.pathname === '/app/campaigns' },
-  { name: 'Analytics', href: '/app/analytics', icon: BarChart3, current: location.pathname === '/app/analytics' },
-  { name: 'Profile', href: '/app/profile', icon: User, current: location.pathname === '/app/profile' },
-  { name: 'Subscription', href: '/app/subscription', icon: CreditCard, current: location.pathname === '/app/subscription' },
+  { name: 'Dashboard', href: '/app/dashboard', icon: Home },
+  { name: 'Groups', href: '/app/groups', icon: Users },
+  { name: 'Templates', href: '/app/templates', icon: FileText },
+  { name: 'Campaigns', href: '/app/campaigns', icon: Mail },
+  { name: 'Analytics', href: '/app/analytics', icon: BarChart3 },
+  { name: 'Profile', href: '/app/profile', icon: User },
+  { name: 'Subscription', href: '/app/subscription', icon: CreditCard },
 ]
 
-
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
+  const location = useLocation()
+
   return (
     <>
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-75 z-20 lg:hidden"
+        <div
+          className="fixed inset-0 bg-[rgba(30,41,59,.5)] backdrop-blur z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
-      
+
       {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 mt-16 lg:mt-0">
-          <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-primary-50 via-white to-slate-50 shadow-xl border-r border-slate-100
+          transform transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:static lg:inset-0
+        `}
+        aria-label="Sidebar navigation"
+      >
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-slate-100 bg-white">
+          <div className="bg-primary-600 rounded-lg flex items-center justify-center w-9 h-9 shadow">
+            <Mail className="w-5 h-5 text-white" />
+          </div>
+          <span className="font-bold text-xl text-gray-900 tracking-tight">
+            MailPilot
+          </span>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900"
+            className="lg:hidden ml-auto p-2 rounded-md text-gray-500 hover:text-primary-600 transition"
+            aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        
-        <nav className="mt-6">
-          <div className="px-3">
-            {navigation.map((item) => {
+        {/* Menu */}
+        <nav className="mt-2" aria-labelledby="sidebar-title">
+          <div className="px-3 py-2 grid gap-1">
+            {navigation.map(item => {
               const Icon = item.icon
+              const isSelected = location.pathname === item.href
               return (
                 <NavLink
                   key={item.name}
                   to={item.href}
                   className={({ isActive }) =>
-                    `flex items-center px-3 py-2 mt-1 text-sm font-medium rounded-md transition-colors duration-200 ${
-                      isActive
-                        ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`
+                    `
+                    flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm select-none
+                    transition-all duration-150 outline-none border-none
+                    ${isActive || isSelected
+                      ? "bg-primary-600 text-white shadow border-l-4 border-primary-800"
+                      : "text-slate-700 hover:text-primary-700 hover:bg-primary-50"
+                    }
+                    `
                   }
                   onClick={() => setSidebarOpen(false)}
+                  aria-current={isSelected ? "page" : undefined}
                 >
-                  <Icon className="w-5 h-5 mr-3" />
+                  <Icon
+                    className={`
+                      w-5 h-5
+                      ${isSelected ? "text-white" : "text-primary-600 group-hover:text-primary-700"}
+                      transition-colors
+                    `}
+                    aria-hidden="true"
+                  />
                   {item.name}
                 </NavLink>
               )
             })}
           </div>
         </nav>
-      </div>
+        {/* SaaS tagline or footer */}
+        <div className="mt-auto text-xs text-gray-400 px-6 pt-8 pb-4 hidden lg:block">
+          <span>
+            © {new Date().getFullYear()} MailPilot · All rights reserved.
+          </span>
+        </div>
+      </aside>
     </>
   )
 }

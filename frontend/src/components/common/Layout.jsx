@@ -7,11 +7,20 @@ const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* SEO - Helpful ARIA role for the header */}
       <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      <div className="flex">
+
+      <div className="flex flex-1" aria-label="Main container">
+        {/* Sidebar Navigation */}
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <main className="flex-1 lg:ml-64">
+
+        {/* Main Content Area with semantic tags */}
+        <main
+          className="flex-1 lg:mt-20 md:mt-20 mt-12 focus:outline-none"
+          tabIndex={-1}
+          aria-label="Page content"
+        >
           <div className="p-6">
             <Outlet />
           </div>

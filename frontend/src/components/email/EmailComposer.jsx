@@ -205,7 +205,7 @@ const EmailComposer = ({ onEmailSent }) => {
             <button
               type="submit"
               disabled={sendEmailMutation.isLoading || !selectedGroupId}
-              className="btn-primary flex items-center"
+              className="bg-primary-600 rounded-lg cursor-pointer hover:bg-primary-700 text-white font-medium py-2 px-4 flex items-center"
             >
               {sendEmailMutation.isLoading ? (
                 <>
