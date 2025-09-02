@@ -38,18 +38,14 @@ const Login = () => {
     setIsSubmitting(true)
 
     try {
-      console.log('Authenticating user with email:', { email: data.email })
-
       const result = await login(data)
 
       if (result?.requiresTwoFactor) {
-        console.log('Two-factor authentication required')
         setIsSubmitting(false)
         return
       }
 
       if (result?.success) {
-        console.log('Email marketing dashboard login successful')
         toast.success('Welcome back! Redirecting to your email marketing dashboard...')
         setIsSubmitting(false)
         return

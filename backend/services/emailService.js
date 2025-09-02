@@ -38,37 +38,34 @@ export const sendVerificationEmail = async (email, token) => {
 export const sendBulkEmails = async (user, group, emailRecord, subject, content) => {
   try {
     const smtpConfig = getSMTPConfig(user.smtpSettings);
-    const transporter = nodemailer.createTransport(smtpConfig);
+    const transporter = nodemailer.createTransporter(smtpConfig);
 
     const results = {
       successCount: 0,
       failedCount: 0,
       recipients: [],
       startTime: new Date(),
-      endTime: null
+      endTime: null,
+      // ✅ Add user audit info
+      sentByUser: {
+        userId: user._id,
+        email: user.email,
+        name: user.name
+      }
     };
 
-    // Advanced rate limiting configuration
+    // Your existing rate limiting configuration
     const rateLimitConfig = {
-      // Emails per hour (conservative approach)
       emailsPerHour: 100,
-      // Emails per minute
       emailsPerMinute: 5,
-      // Base delay between emails (milliseconds)
-      baseDelay: 15000, // 15 seconds
-      // Maximum delay with jitter (milliseconds)
-      maxDelay: 45000, // 45 seconds
-      // Burst size (emails sent quickly before applying delay)
+      baseDelay: 15000,
+      maxDelay: 45000,
       burstSize: 3,
-      // Cool-down period after burst (milliseconds)
-      burstCooldown: 120000, // 2 minutes
-      // Retry attempts for failed emails
+      burstCooldown: 120000,
       maxRetries: 2,
-      // Delay multiplier for retries
       retryDelayMultiplier: 2
     };
 
-    // Track sending metrics
     let emailsSentInCurrentHour = 0;
     let emailsSentInCurrentMinute = 0;
     let lastHourReset = Date.now();
@@ -76,90 +73,75 @@ export const sendBulkEmails = async (user, group, emailRecord, subject, content)
     let burstCounter = 0;
     let lastBurstTime = 0;
 
-    // Helper function to add jitter to delays
     const addJitter = (delay) => {
-      const jitter = Math.random() * 0.3 * delay; // 30% jitter
+      const jitter = Math.random() * 0.3 * delay;
       return Math.floor(delay + jitter);
     };
 
-    // Helper function to calculate dynamic delay
     const calculateDelay = (index, totalEmails) => {
       let delay = rateLimitConfig.baseDelay;
-      
-      // Increase delay based on position in queue
       const progressFactor = index / totalEmails;
       delay = Math.floor(delay * (1 + progressFactor * 0.5));
-      
-      // Add jitter to make sending pattern less predictable
       delay = addJitter(delay);
-      
       return Math.min(delay, rateLimitConfig.maxDelay);
     };
 
-    // Helper function to check and enforce rate limits
     const enforceRateLimit = async (index, totalEmails) => {
       const now = Date.now();
       
-      // Reset hourly counter
-      if (now - lastHourReset >= 3600000) { // 1 hour
+      if (now - lastHourReset >= 3600000) {
         emailsSentInCurrentHour = 0;
         lastHourReset = now;
       }
       
-      // Reset minute counter
-      if (now - lastMinuteReset >= 60000) { // 1 minute
+      if (now - lastMinuteReset >= 60000) {
         emailsSentInCurrentMinute = 0;
         lastMinuteReset = now;
       }
       
-      // Check hourly limit
       if (emailsSentInCurrentHour >= rateLimitConfig.emailsPerHour) {
         const waitTime = 3600000 - (now - lastHourReset);
-        console.log(`Hourly limit reached. Waiting ${Math.ceil(waitTime / 1000 / 60)} minutes...`);
+        // ✅ Enhanced logging with user info
+        console.log(`🚦 User ${user.email} (${user._id}) hit hourly limit. Waiting ${Math.ceil(waitTime / 1000 / 60)} minutes...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         emailsSentInCurrentHour = 0;
         lastHourReset = Date.now();
       }
       
-      // Check per-minute limit
       if (emailsSentInCurrentMinute >= rateLimitConfig.emailsPerMinute) {
         const waitTime = 60000 - (now - lastMinuteReset);
-        console.log(`Per-minute limit reached. Waiting ${Math.ceil(waitTime / 1000)} seconds...`);
+        console.log(`⏱️ User ${user.email} hit per-minute limit. Waiting ${Math.ceil(waitTime / 1000)} seconds...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         emailsSentInCurrentMinute = 0;
         lastMinuteReset = Date.now();
       }
       
-      // Handle burst control
       if (burstCounter >= rateLimitConfig.burstSize) {
         if (now - lastBurstTime < rateLimitConfig.burstCooldown) {
           const cooldownRemaining = rateLimitConfig.burstCooldown - (now - lastBurstTime);
-          console.log(`Burst cooldown active. Waiting ${Math.ceil(cooldownRemaining / 1000)} seconds...`);
+          console.log(`❄️ User ${user.email} burst cooldown active. Waiting ${Math.ceil(cooldownRemaining / 1000)} seconds...`);
           await new Promise(resolve => setTimeout(resolve, cooldownRemaining));
         }
         burstCounter = 0;
       }
       
-      // Apply dynamic delay
       if (index > 0) {
         const delay = calculateDelay(index, totalEmails);
-        console.log(`Applying delay: ${delay / 1000}s before sending email ${index + 1}/${totalEmails}`);
+        console.log(`⏳ User ${user.email} applying delay: ${(delay / 1000).toFixed(3)}s before sending email ${index + 1}/${totalEmails}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     };
 
-    // Helper function to send individual email with retries
     const sendEmailWithRetry = async (contact, personalizedSubject, personalizedContent, attempt = 1) => {
       try {
-        // Enhanced email headers to improve deliverability
         const emailOptions = {
           from: `${user.name} <${user.smtpSettings.email}>`,
           to: contact.email,
           subject: personalizedSubject,
           html: personalizedContent,
-          text: personalizedContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+          text: personalizedContent.replace(/<[^>]*>/g, ''),
           headers: {
-            'X-Mailer': 'Professional Email Service',
+            'X-Mailer': 'MailPilot Professional',
             'X-Priority': '3',
             'X-MSMail-Priority': 'Normal',
             'Precedence': 'bulk',
@@ -170,11 +152,13 @@ export const sendBulkEmails = async (user, group, emailRecord, subject, content)
             'Message-ID': `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${user.smtpSettings.email.split('@')[1]}>`,
             'Date': new Date().toUTCString(),
             'MIME-Version': '1.0',
-            'Content-Type': 'multipart/alternative'
+            'Content-Type': 'multipart/alternative',
+            // ✅ Add user identification headers for audit
+            'X-Sender-User-ID': user._id.toString(),
+            'X-Campaign-ID': emailRecord._id.toString()
           }
         };
 
-        // Add authentication headers if available
         if (user.smtpSettings.dkim) {
           emailOptions.dkim = user.smtpSettings.dkim;
         }
@@ -187,16 +171,18 @@ export const sendBulkEmails = async (user, group, emailRecord, subject, content)
           name: contact.name,
           status: 'sent',
           sentAt: new Date(),
-          attempt: attempt
+          attempt: attempt,
+          // ✅ Add user audit info to recipient record
+          sentByUser: user._id
         };
 
       } catch (error) {
-        console.error(`Attempt ${attempt} failed for ${contact.email}:`, error.message);
+        // ✅ Enhanced error logging with user context
+        console.error(`❌ User ${user.email} - Attempt ${attempt} failed for ${contact.email}:`, error.message);
         
-        // Retry logic
         if (attempt < rateLimitConfig.maxRetries) {
           const retryDelay = rateLimitConfig.baseDelay * rateLimitConfig.retryDelayMultiplier * attempt;
-          console.log(`Retrying ${contact.email} in ${retryDelay / 1000} seconds...`);
+          console.log(`🔄 User ${user.email} retrying ${contact.email} in ${retryDelay / 1000} seconds... (attempt ${attempt + 1}/${rateLimitConfig.maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, addJitter(retryDelay)));
           return await sendEmailWithRetry(contact, personalizedSubject, personalizedContent, attempt + 1);
         }
@@ -207,26 +193,42 @@ export const sendBulkEmails = async (user, group, emailRecord, subject, content)
           name: contact.name,
           status: 'failed',
           errorMessage: error.message,
-          attempt: attempt
+          attempt: attempt,
+          failedByUser: user._id
         };
       }
     };
 
-    console.log(`Starting bulk email send to ${group.contacts.length} recipients...`);
+    // ✅ Enhanced startup logging
+    console.log(`🚀 User ${user.email} (${user.name}, ID: ${user._id}) starting bulk email campaign:`);
+    console.log(`   📧 Campaign ID: ${emailRecord._id}`);
+    console.log(`   👥 Group: ${group.name} (${group.contacts.length} recipients)`);
+    console.log(`   📝 Subject: "${subject}"`);
+    console.log(`   🕒 Started at: ${results.startTime.toISOString()}`);
     
+    // ✅ Update email record with user audit info immediately
+    if (emailRecord) {
+      emailRecord.status = 'sending';
+      emailRecord.startedBy = user._id;
+      emailRecord.startedAt = results.startTime;
+      emailRecord.lastUpdatedBy = user._id;
+      emailRecord.lastUpdatedAt = new Date();
+      await emailRecord.save();
+    }
+
     // Process emails with advanced rate limiting
     for (let i = 0; i < group.contacts.length; i++) {
       const contact = group.contacts[i];
       
       try {
-        // Enforce rate limiting before sending
+        // ✅ Log each email attempt with user context
+        console.log(`📤 User ${user.email} sending email ${i + 1}/${group.contacts.length} to ${contact.email}...`);
+        
         await enforceRateLimit(i, group.contacts.length);
         
-        // Personalize content
         const personalizedSubject = personalizeContent(subject, contact);
         const personalizedContent = personalizeContent(content, contact);
         
-        // Send email with retry logic
         const result = await sendEmailWithRetry(contact, personalizedSubject, personalizedContent);
         
         if (result.success) {
@@ -237,26 +239,41 @@ export const sendBulkEmails = async (user, group, emailRecord, subject, content)
           burstCounter++;
           lastBurstTime = Date.now();
           
-          console.log(`✅ Email sent successfully to ${contact.email} (${i + 1}/${group.contacts.length})`);
+          // ✅ Enhanced success logging
+          console.log(`✅ User ${user.email} successfully sent email ${i + 1}/${group.contacts.length} to ${contact.email}`);
+          
+          // ✅ Update email record progress every 5 emails for real-time status
+          if ((i + 1) % 5 === 0) {
+            await Email.findByIdAndUpdate(emailRecord._id, {
+              successCount: results.successCount,
+              failedCount: results.failedCount,
+              status: 'sending',
+              lastUpdatedBy: user._id,
+              lastUpdatedAt: new Date()
+            });
+          }
+          
         } else {
           results.recipients.push(result);
           results.failedCount++;
-          console.log(`❌ Failed to send email to ${contact.email} after ${rateLimitConfig.maxRetries} attempts`);
+          console.log(`❌ User ${user.email} failed to send email ${i + 1}/${group.contacts.length} to ${contact.email} after ${rateLimitConfig.maxRetries} attempts: ${result.errorMessage}`);
         }
         
-        // Log progress every 10 emails
+        // ✅ Enhanced progress logging every 10 emails
         if ((i + 1) % 10 === 0) {
           const progress = ((i + 1) / group.contacts.length * 100).toFixed(1);
-          console.log(`📊 Progress: ${progress}% (${results.successCount} sent, ${results.failedCount} failed)`);
+          const successRate = (results.successCount / (results.successCount + results.failedCount) * 100).toFixed(1);
+          console.log(`📊 User ${user.email} progress: ${progress}% complete (${results.successCount} sent, ${results.failedCount} failed, ${successRate}% success rate)`);
         }
 
       } catch (error) {
-        console.error(`Unexpected error processing ${contact.email}:`, error);
+        console.error(`💥 User ${user.email} unexpected error processing ${contact.email}:`, error);
         results.recipients.push({
           email: contact.email,
           name: contact.name,
           status: 'error',
-          errorMessage: error.message
+          errorMessage: error.message,
+          errorByUser: user._id
         });
         results.failedCount++;
       }
@@ -264,25 +281,63 @@ export const sendBulkEmails = async (user, group, emailRecord, subject, content)
 
     results.endTime = new Date();
     const duration = Math.ceil((results.endTime - results.startTime) / 1000 / 60);
+    const successRate = (results.successCount / group.contacts.length * 100).toFixed(1);
     
-    console.log(`📧 Bulk email send completed in ${duration} minutes:`);
-    console.log(`   ✅ Successful: ${results.successCount}`);
-    console.log(`   ❌ Failed: ${results.failedCount}`);
-    console.log(`   📈 Success rate: ${(results.successCount / group.contacts.length * 100).toFixed(1)}%`);
+    // ✅ Enhanced completion logging with user audit
+    console.log(`🎉 User ${user.email} bulk email campaign completed!`);
+    console.log(`   ⏱️ Duration: ${duration} minutes`);
+    console.log(`   ✅ Successful: ${results.successCount}/${group.contacts.length}`);
+    console.log(`   ❌ Failed: ${results.failedCount}/${group.contacts.length}`);
+    console.log(`   📈 Success rate: ${successRate}%`);
+    console.log(`   🕒 Completed at: ${results.endTime.toISOString()}`);
 
-    // Update email record with results
+    // ✅ Final update email record with complete audit trail
     if (emailRecord) {
-      emailRecord.sentCount = results.successCount;
+      emailRecord.successCount = results.successCount;
       emailRecord.failedCount = results.failedCount;
+      emailRecord.status = 'completed';
       emailRecord.completedAt = results.endTime;
       emailRecord.duration = duration;
+      emailRecord.successRate = parseFloat(successRate);
+      emailRecord.completedBy = user._id;
+      emailRecord.lastUpdatedBy = user._id;
+      emailRecord.lastUpdatedAt = new Date();
+      emailRecord.recipients = results.recipients;
+      
+      // Add summary audit info
+      emailRecord.auditLog = {
+        startedBy: user._id,
+        completedBy: user._id,
+        startTime: results.startTime,
+        endTime: results.endTime,
+        totalDuration: duration,
+        userEmail: user.email,
+        userName: user.name
+      };
+      
+      await emailRecord.save();
     }
+
+    // ✅ Log final audit summary
+    console.log(`📝 Campaign ${emailRecord._id} audit: User ${user.email} sent ${results.successCount}/${group.contacts.length} emails successfully in ${duration} minutes`);
 
     return results;
 
   } catch (error) {
-    console.error('❌ Critical error in sendBulkEmails:', error);
-    throw new Error(`Bulk email send failed: ${error.message}`);
+    // ✅ Enhanced error logging with user context
+    console.error(`💥 Critical error in sendBulkEmails for user ${user.email} (${user._id}):`, error);
+    
+    // Update email record with error info
+    if (emailRecord) {
+      emailRecord.status = 'failed';
+      emailRecord.errorMessage = error.message;
+      emailRecord.failedBy = user._id;
+      emailRecord.lastUpdatedBy = user._id;
+      emailRecord.lastUpdatedAt = new Date();
+      await emailRecord.save();
+    }
+    
+    throw new Error(`Bulk email send failed for user ${user.email}: ${error.message}`);
   }
 };
 

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import connectDB from './config/database.js';
+import morgan from 'morgan';
 
 
 dotenv.config();
@@ -12,6 +13,12 @@ const app = express();
 
 // Connect Database
 connectDB();
+
+// Trust first proxy (for Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
+// Logging middleware
+app.use(morgan('dev'));
 
 // Security middleware
 app.use(helmet({

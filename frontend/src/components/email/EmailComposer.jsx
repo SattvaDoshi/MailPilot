@@ -9,6 +9,7 @@ import { groupsAPI } from '../../services/groups'
 import { templatesAPI } from '../../services/templates'
 import Modal from '../common/Modal'
 import toast from 'react-hot-toast'
+import EmailSendingProgress from './EmailSendingProgress'
 
 const schema = yup.object({
   groupId: yup.string().required('Group is required'),
@@ -20,6 +21,34 @@ const EmailComposer = ({ onEmailSent }) => {
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [campaignId, setCampaignId] = useState(null)
+  const [showProgress, setShowProgress] = useState(false)
+
+  const sendEmailMutation = useMutation(emailsAPI.sendEmails, {
+    onSuccess: (data) => {
+      console.log('✅ Send emails response:', data.data.data)
+      const emailId = data.data.data.emailId
+      setCampaignId(emailId)
+      setShowProgress(true)
+      toast.success('Email campaign started! Track progress below.')
+    },
+    onError: (error) => {
+      console.error('❌ Send emails error:', error)
+      toast.error(error.response?.data?.message || 'Failed to send emails')
+    }
+  })
+
+  const handleCampaignComplete = (finalData) => {
+    toast.success(`Campaign completed! ${finalData.sent}/${finalData.total} emails delivered`)
+    onEmailSent?.(finalData)
+    // Keep progress visible for a few seconds
+    setTimeout(() => {
+      setShowProgress(false)
+      setCampaignId(null)
+    }, 5000)
+  }
+
+  // ✅ Remove the conflicting useEffect hooks - EmailSendingProgress handles this
 
   const { data: groupsData } = useQuery('groups', groupsAPI.getGroups)
   const { data: templatesData } = useQuery(
@@ -44,16 +73,6 @@ const EmailComposer = ({ onEmailSent }) => {
   const watchedContent = watch('content', '')
   const watchedSubject = watch('subject', '')
 
-  const sendEmailMutation = useMutation(emailsAPI.sendEmails, {
-    onSuccess: (data) => {
-      toast.success('Email campaign started successfully!')
-      onEmailSent?.(data.data.data)
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to send emails')
-    }
-  })
-
   const handleGroupChange = (groupId) => {
     setSelectedGroupId(groupId)
     setValue('groupId', groupId)
@@ -75,6 +94,7 @@ const EmailComposer = ({ onEmailSent }) => {
       ...data,
       templateId: selectedTemplateId || undefined
     }
+    console.log('🚀 Sending email campaign:', emailData)
     sendEmailMutation.mutate(emailData)
   }
 
@@ -87,6 +107,7 @@ const EmailComposer = ({ onEmailSent }) => {
         <p className="text-gray-600">Create and send personalized emails to your contact groups</p>
       </div>
 
+      {/* Your existing form JSX remains the same... */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Group Selection */}
         <div className="card">
@@ -252,6 +273,14 @@ const EmailComposer = ({ onEmailSent }) => {
           </button>
         </div>
       </Modal>
+      
+      {/* ✅ Real-Time Progress Display */}
+      {showProgress && campaignId && (
+        <EmailSendingProgress 
+          campaignId={campaignId}
+          onComplete={handleCampaignComplete}
+        />
+      )}
     </div>
   )
 }
